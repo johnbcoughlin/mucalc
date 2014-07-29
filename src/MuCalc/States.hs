@@ -59,7 +59,7 @@ fromExplicit set = Data.Set.foldl' (\accum -> (\state -> setOr accum (singleton 
 
 --Used for testing
 toExplicit :: StateSet -> ExplicitStateSet
-toExplicit set = Explicit (fromList $ Prelude.filter (contains set) (enumerateStates n)) n
+toExplicit set = Explicit (fromList $ Prelude.filter (set `contains`) (enumerateStates n)) n
   where n = setDim set
 
 {-

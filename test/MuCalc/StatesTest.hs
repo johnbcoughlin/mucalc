@@ -11,8 +11,7 @@ import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 import Test.QuickCheck.Function
 
-testList = [
-             testProperty "empty bottom" emptyBottom
+testList = [ testProperty "empty bottom" emptyBottom
            , testProperty "full top" fullTop
            , testProperty "singleton" singletonProp
            , testProperty "from explicit set property" fromExplicitProperty
@@ -22,33 +21,34 @@ testList = [
            , testCase "map to state list" mapToStateListTest
            ]
 
-dimensions = elements [1..7]
+--Generators--
 
+dimensions = elements [1..5]
 dimNStates n = vectorOf n $ elements [True, False]
+
+--If prop doesn't need to know about the dimension
 forAllStates prop = forAll dimensions $ (\n ->
-                      forAll (dimNStates n) $ prop)
+                    forAll (dimNStates n) $ prop)
 
---Properties of lists of states (not state sets)
-forAllStateLists prop = forAll dimensions $ (\n ->
-                          forAll (listOf (dimNStates n)) $ prop)
+--Properties--
 
-emptyBottom = forAllStates $ (\state -> contains (newBottom (length state)) state == False)
+emptyBottom = forAll dimensions $ (\n ->
+              forAll (dimNStates n) $ (not . (newBottom n `contains`)))
 
-fullTop = forAllStates $ (\state -> contains (newTop (length state)) state == True)
+fullTop = forAll dimensions $ (\n ->
+          forAll (dimNStates n) $ (newTop n `contains`))
 
-singletonProp = forAllStates $ (\state -> contains (singleton state) state == True)
+singletonProp = forAllStates $ (\state -> (singleton state) `contains` state)
 
 fromExplicitProperty = forAll dimensions $ (\n ->
-                        forAll (listOf (dimNStates n)) $ (\states ->
-                          let stateSet = fromExplicit (Explicit (Data.Set.fromList states) n)
-                              containments = Prelude.map (\s -> contains stateSet s) states
-                           in Prelude.and containments))
+                       forAll (listOf (dimNStates n)) $ (\states ->
+                         let stateSet = fromExplicit (Explicit (Data.Set.fromList states) n)
+                          in Prelude.all (stateSet `contains`) states))
 
 explicitBijectionProperty = forAll dimensions $ (\n ->
-                              forAll (listOf (dimNStates n)) $ (\list ->
-                                let explicit = (Explicit (Data.Set.fromList list) n)
-                                    pullback = toExplicit (fromExplicit explicit)
-                                 in pullback == explicit))
+                            forAll (listOf (dimNStates n)) $ (\list ->
+                              let explicit = (Explicit (Data.Set.fromList list) n)
+                               in explicit == toExplicit (fromExplicit explicit)))
 
 xorMaskGen = dimNStates
 
@@ -65,23 +65,23 @@ instance Show (State -> ExplicitStateSet) where
 
 --Expect the [output, input] pair of n-vector tuples
 transitionProperty = forAll dimensions $ (\n ->
-                       forAll (transitions n) $ (\f ->
-                         forAll (dimNStates n) $ (\state ->
-                           let transition = fromFunction n f
-                               expected = Data.Set.map (++state) (states $ f state)
-                            --Verify that the transition set contains every expected value.
-                            in notMember False (Data.Set.map (contains transition) expected))))
+                     forAll (transitions n) $ (\f ->
+                     forAll (dimNStates n) $ (\state ->
+                       let transition = fromFunction n f
+                           expected = Data.Set.map (++state) (states $ f state)
+                        --Verify that the transition set contains every expected value.
+                        in notMember False (Data.Set.map (transition `contains`) expected))))
 
 --Check that the transition pullback function pulls back to states from which we can reach the goal image.
 transitionPullbackProperty = forAll dimensions $ (\n ->
-                               forAll (transitions n) $ (\f ->
-                                 forAll (listOf (dimNStates n)) $ (\stateList ->
-                                   let transition = fromFunction n f
-                                       image = fromExplicit (Explicit (Data.Set.fromList stateList) n)
-                                       preImage = elems $ states (toExplicit $ throughTransition image transition)
-                                       hasAnyFResultsInImage = (\preImageState ->
-                                                               Prelude.any (contains image) (elems $ (states $ f preImageState)))
-                                    in Prelude.all hasAnyFResultsInImage preImage)))
+                             forAll (transitions n) $ (\f ->
+                             forAll (listOf (dimNStates n)) $ (\stateList ->
+                               let transition = fromFunction n f
+                                   image = fromExplicit (Explicit (Data.Set.fromList stateList) n)
+                                   preImage = elems.states.toExplicit $ throughTransition image transition
+                                   hasAnyFResultsInImage = (\preImageState ->
+                                                           Prelude.any (image `contains`) (elems.states.f $ preImageState))
+                                in Prelude.all hasAnyFResultsInImage preImage)))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.
 mapToStateListTest = let hash = Data.Map.fromList [(4, True), (6, False)]

@@ -8,7 +8,6 @@ import MuCalc.MuModelTest (testList)
 
 main = defaultMain tests
 
-tests = [
-          testGroup "States and Transitions" MuCalc.StatesTest.testList,
-          testGroup "MuModels" MuCalc.MuModelTest.testList
+tests = [ testGroup "States and Transitions" MuCalc.StatesTest.testList
+        , testGroup "MuModels" MuCalc.MuModelTest.testList
         ]
