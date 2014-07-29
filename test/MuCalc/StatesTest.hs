@@ -1,15 +1,13 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module MuCalc.StatesTest (testList) where
 
 import Data.Set hiding (singleton)
 import Data.Map hiding (singleton, notMember, elems)
 import MuCalc.States
+import MuCalc.Generators
 import Test.HUnit hiding (State)
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
-import Test.QuickCheck.Function
 
 testList = [ testProperty "empty bottom" emptyBottom
            , testProperty "full top" fullTop
@@ -20,30 +18,6 @@ testList = [ testProperty "empty bottom" emptyBottom
            , testProperty "transition pullback property" transitionPullbackProperty
            , testCase "map to state list" mapToStateListTest
            ]
-
---Generators--
-
-dimensions = elements [1..5]
-dimNStates n = vectorOf n $ elements [True, False]
-
---If prop doesn't need to know about the dimension
-forAllStates prop = forAll dimensions $ (\n ->
-                    forAll (dimNStates n) $ prop)
-
---Generates transition functions which XOR a state with a list of bit masks
-xorMaskGen = dimNStates
-
-transitions :: Int -> Gen (State -> ExplicitStateSet)
-transitions n = (\masks -> (\state ->
-                    Explicit (Data.Set.map (\bit ->
-                      Prelude.map (/=bit) state)
-                    (Data.Set.fromList masks)) n)
-                  ) `fmap` (xorMaskGen n)
-
-instance Show (State -> ExplicitStateSet) where
-  show f = "tough luck"
-
---Properties--
 
 emptyBottom = forAll dimensions $ (\n ->
               forAll (dimNStates n) $ (not . (newBottom n `contains`)))

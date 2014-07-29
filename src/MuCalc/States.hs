@@ -21,6 +21,9 @@ data ExplicitStateSet = Explicit { states :: Set State
 instance Show StateSet where
   show = show . all_models . obdd
 
+instance Eq StateSet where
+  (==) set1 set2 = (toExplicit set1) == (toExplicit set2)
+
 --Contains no states
 newBottom :: Int -> StateSet
 newBottom = Implicit (constant False)
