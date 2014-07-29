@@ -30,6 +30,19 @@ dimNStates n = vectorOf n $ elements [True, False]
 forAllStates prop = forAll dimensions $ (\n ->
                     forAll (dimNStates n) $ prop)
 
+--Generates transition functions which XOR a state with a list of bit masks
+xorMaskGen = dimNStates
+
+transitions :: Int -> Gen (State -> ExplicitStateSet)
+transitions n = (\masks -> (\state ->
+                    Explicit (Data.Set.map (\bit ->
+                      Prelude.map (/=bit) state)
+                    (Data.Set.fromList masks)) n)
+                  ) `fmap` (xorMaskGen n)
+
+instance Show (State -> ExplicitStateSet) where
+  show f = "tough luck"
+
 --Properties--
 
 emptyBottom = forAll dimensions $ (\n ->
@@ -49,19 +62,6 @@ explicitBijectionProperty = forAll dimensions $ (\n ->
                             forAll (listOf (dimNStates n)) $ (\list ->
                               let explicit = (Explicit (Data.Set.fromList list) n)
                                in explicit == toExplicit (fromExplicit explicit)))
-
-xorMaskGen = dimNStates
-
---Generates transition functions which XOR a state with a list of bit masks
-transitions :: Int -> Gen (State -> ExplicitStateSet)
-transitions n = (\masks -> (\state ->
-                    Explicit (Data.Set.map (\bit ->
-                      Prelude.map (/=bit) state)
-                    (Data.Set.fromList masks)) n)
-                  ) `fmap` (xorMaskGen n)
-
-instance Show (State -> ExplicitStateSet) where
-  show f = "tough luck"
 
 --Expect the [output, input] pair of n-vector tuples
 transitionProperty = forAll dimensions $ (\n ->

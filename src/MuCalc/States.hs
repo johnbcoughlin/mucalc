@@ -19,18 +19,17 @@ data ExplicitStateSet = Explicit { states :: Set State
                                  deriving (Eq)
 
 instance Show StateSet where
-  show set = show (all_models $ obdd set)
+  show = show . all_models . obdd
 
 --Contains no states
 newBottom :: Int -> StateSet
-newBottom n = let units = Prelude.map (\i -> (unit i True) OBDD.&& (unit i False)) [0..n-1]
-            in Implicit (OBDD.and units) n
+newBottom = Implicit (constant False)
 
 --Contains every state
 newTop :: Int -> StateSet
-newTop n = let units = Prelude.map (\i -> (unit i True) || (unit i False)) [0..n-1]
-            in Implicit (OBDD.or units) n
+newTop = Implicit (constant True)
 
+--Binary and unary state set operators. They all preserve the dimension of the first argument.
 --Union of two state sets
 setOr :: StateSet -> StateSet -> StateSet
 setOr set1 set2 = Implicit (obdd set1 || obdd set2) (setDim set1)
@@ -53,7 +52,7 @@ singleton state = let n = length state
                    in Implicit (OBDD.and units) n
 
 fromExplicit :: ExplicitStateSet -> StateSet
-fromExplicit set = Data.Set.foldl' (\accum -> (\state -> setOr accum (singleton state)))
+fromExplicit set = Data.Set.foldl' (\accum -> (\state -> accum `setOr` (singleton state)))
                                    (newBottom (explicitDim set))
                                    (states set)
 
@@ -71,7 +70,7 @@ toExplicit set = Explicit (fromList $ Prelude.filter (set `contains`) (enumerate
 type Transition = StateSet
 
 fromFunction :: Int -> (State -> ExplicitStateSet) -> Transition
-fromFunction dim f = foldl (\accum -> (\transition -> setOr accum transition))
+fromFunction dim f = foldl (\accum -> (\transition -> accum `setOr` transition))
                            (newBottom (dim * 2))
                            (Prelude.map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
 
@@ -81,12 +80,12 @@ fromSingleFunctionApplication input output dim = let combinedVectors = Data.Set.
 
 --The set of states from which a phi-state is reachable through the given Transition
 throughTransition :: StateSet -> Transition -> StateSet
-throughTransition phi tr = let restriction = forceTransition tr phi
-                            in rebase restriction
+throughTransition phi tr = rebase $ forceTransition phi tr
 
---Force a transition to map onto phi-states
-forceTransition :: Transition -> StateSet -> Transition
-forceTransition tr phi = setAnd tr phi
+--Force a transition to map onto phi-states.
+--This is done by taking the intersection of valid (output, input) tuples with the set of desired phi-outputs.
+forceTransition :: StateSet -> Transition -> Transition
+forceTransition phi tr = tr `setAnd` phi
 
 --Whoo, power sets. This should be pretty efficient with laziness.
 enumerateStates :: Int -> [State]
@@ -111,5 +110,3 @@ rebaseMapToState n hash = let allStates = enumerateStates n
                                                                         (Data.Map.lookup (i+n) hash)))
                                                     [0..n-1])
                            in Prelude.filter matchesAtEveryIndex allStates
-
-
