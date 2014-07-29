@@ -28,8 +28,10 @@ propositionProperty = forAll dimensions $ (\n ->
                       forAll (elements [True, False]) $ (\bool ->
                         let model = newMuModel n
                             realization = realizeProposition i emptyContext model
-                         in whenFail' (putStrLn $ show realization)
-                                      ((realization `contains` (setNthElement state i bool) `iff` bool))))))
+                         in case realization of
+                              Left error -> property False
+                              Right set -> whenFail' (putStrLn $ show set)
+                                           ((set `contains` (setNthElement state i bool) `iff` bool))))))
 
 negationProperty = forAll dimensions $ (\n ->
                    forAll (models n) $ (\model ->
