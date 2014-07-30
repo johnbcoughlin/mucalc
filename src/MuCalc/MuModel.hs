@@ -26,10 +26,8 @@ data RealizationError = VariableParityError | PropositionIndexError |
 type Realization = Either RealizationError StateSet
 
 --Construct the set of states of this model which satisfy the given formula.
-realize :: MuFormula -> MuModel -> StateSet
-realize phi model = case realizeAux phi empty model of
-                      Left error -> newBottom (dimension model)
-                      Right result -> result
+realize :: MuFormula -> MuModel -> Realization
+realize phi = realizeAux phi empty
 
 realizeAux :: MuFormula -> Context -> MuModel -> Realization
 realizeAux (Proposition n) = realizeProposition n
@@ -62,6 +60,7 @@ realizeConjunction f1 f2 c m = let r1 = realizeAux f1 c m
 
 realizeVariable :: String -> Context -> MuModel -> Realization
 realizeVariable var c m = case lookup var c of
+                            Nothing -> Left VariableBindingError
                             Just (set, parity) -> if parity
                                                   then Right set
                                                   else Left VariableParityError
@@ -91,10 +90,10 @@ fixpointLoop var f c m (Right state) = let newContext = adjust (\p -> (state, sn
 
 --Should be TCOed
 fixpoint :: (a -> a) -> (a -> a -> Bool) -> a -> a
-fixpoint f test init = let next = f init
-                        in if next `test` init
-                           then next
-                           else fixpoint f test next
+fixpoint f eq init = let next = f init
+                      in if next `eq` init
+                         then next
+                         else fixpoint f eq next
 
 combine :: (StateSet -> StateSet -> StateSet) -> Realization -> Realization -> Realization
 combine f r1 r2 = case r1 of
