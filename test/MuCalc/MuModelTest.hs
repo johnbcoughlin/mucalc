@@ -27,50 +27,52 @@ iff p q = (p `implies` q) && (q `implies` p)
 emptyContext = Data.Map.empty
 
 propositionProperty = forAll dimensions $ (\n ->
+                      forAll (models n) $ (\model ->
                       forAll (dimNStates n) $ (\state ->
                       forAll (elements [0..n-1]) $ (\i ->
                       forAll (elements [True, False]) $ (\bool ->
-                        let model = newMuModel n
-                            realization = realizeProposition i emptyContext model
-                         in case realization of
-                              Left error -> property False
-                              Right set -> whenFail' (putStrLn $ show set)
-                                           ((set `contains` (setNthElement state i bool) `iff` bool))))))
+                        let phi = Proposition i
+                         in extract (realizeAux phi emptyContext model) (\set ->
+                              whenFail' (putStrLn $ show set)
+                                        ((set `contains` (setNthElement state i bool) `iff` bool))))))))
 
 negationProperty = forAll dimensions $ (\n ->
                    forAll (models n) $ (\model ->
                    forAll (formulas n) $ (\phi ->
-                     let notPhi = Negation phi
-                         phiRealization = realize phi model
-                         notPhiRealization = realize notPhi model
-                      in notPhiRealization == setNot phiRealization)))
+                     extract (realizeAux phi emptyContext model) (\phiSet ->
+                     extract (realizeAux (Negation phi) emptyContext model) (\notPhiSet ->
+                       property $ notPhiSet == setNot phiSet)))))
 
 disjunctionProperty = forAll dimensions $ (\n ->
                       forAll (models n) $ (\model -> let fn = (formulas n) in
                       forAll (pure (,) <*> fn <*> fn) $ (\(phi, psi) ->
                       forAll (dimNStates n) $ (\state ->
-                        let phiSet = realize phi model
-                            psiSet = realize psi model
-                            unionSet = realize (Or phi psi) model
-                            prop1 = (phiSet `contains` state ==> unionSet `contains` state)
-                            prop2 = (psiSet `contains` state ==> unionSet `contains` state)
-                            prop3 = (unionSet `contains` state ==> phiSet `contains` state)
-                            prop4 = (unionSet `contains` state ==> psiSet `contains` state)
-                         in (prop1 .&&. prop2) .&&. (prop3 .||. prop4)))))
-
+                        extract (realizeAux phi emptyContext model) (\phiSet ->
+                        extract (realizeAux psi emptyContext model) (\psiSet ->
+                        extract (realizeAux (Or phi psi) emptyContext model) (\unionSet ->
+                          let prop1 = (phiSet `contains` state ==> unionSet `contains` state)
+                              prop2 = (psiSet `contains` state ==> unionSet `contains` state)
+                              prop3 = (unionSet `contains` state ==> phiSet `contains` state)
+                              prop4 = (unionSet `contains` state ==> psiSet `contains` state)
+                           in (prop1 .&&. prop2) .&&. (prop3 .||. prop4))))))))
 
 conjunctionProperty = forAll dimensions $ (\n ->
                       forAll (models n) $ (\model -> let fn = (formulas n) in
                       forAll (pure (,) <*> fn <*> fn) $ (\(phi, psi) ->
                       forAll (dimNStates n) $ (\state ->
-                        let phiSet = realize phi model
-                            psiSet = realize psi model
-                            intersectionSet = realize (And phi psi) model
-                            prop1 = (phiSet `contains` state ==> intersectionSet `contains` state)
-                            prop2 = (psiSet `contains` state ==> intersectionSet `contains` state)
-                            prop3 = (intersectionSet `contains` state ==> phiSet `contains` state)
-                            prop4 = (intersectionSet `contains` state ==> psiSet `contains` state)
-                         in (prop1 .||. prop2) .&&. (prop3 .&&. prop4)))))
+                        extract (realizeAux phi emptyContext model) (\phiSet ->
+                        extract (realizeAux psi emptyContext model) (\psiSet ->
+                        extract (realizeAux (And phi psi) emptyContext model) (\intersectionSet ->
+                          let prop1 = (phiSet `contains` state ==> intersectionSet `contains` state)
+                              prop2 = (psiSet `contains` state ==> intersectionSet `contains` state)
+                              prop3 = (intersectionSet `contains` state ==> phiSet `contains` state)
+                              prop4 = (intersectionSet `contains` state ==> psiSet `contains` state)
+                           in (prop1 .||. prop2) .&&. (prop3 .&&. prop4))))))))
+
+--Chain these guys for maximum fun
+extract :: Realization -> (StateSet -> Property) -> Property
+extract (Left error) = const (property False) --ignore the given property computation
+extract (Right set) = ($set) --apply the given computation to the set
 
 aContext = Data.Map.fromList [("A", (newBottom 2, True))]
 aModel = newMuModel 2
