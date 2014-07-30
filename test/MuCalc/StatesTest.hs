@@ -1,6 +1,6 @@
 module MuCalc.StatesTest (testList) where
 
-import Data.Set hiding (singleton)
+import qualified Data.Set as S
 import Data.Map hiding (singleton, notMember, elems)
 import MuCalc.States
 import MuCalc.Generators
@@ -29,33 +29,33 @@ singletonProp = forAllStates $ (\state -> (singleton state) `contains` state)
 
 fromExplicitProperty = forAll dimensions $ (\n ->
                        forAll (listOf (dimNStates n)) $ (\states ->
-                         let stateSet = fromExplicit (Explicit (Data.Set.fromList states) n)
-                          in Prelude.all (stateSet `contains`) states))
+                         let stateSet = fromExplicit (Explicit (S.fromList states) n)
+                          in all (stateSet `contains`) states))
 
 explicitBijectionProperty = forAll dimensions $ (\n ->
                             forAll (listOf (dimNStates n)) $ (\list ->
-                              let explicit = (Explicit (Data.Set.fromList list) n)
+                              let explicit = (Explicit (S.fromList list) n)
                                in explicit == toExplicit (fromExplicit explicit)))
 
 --Expect the [output, input] pair of n-vector tuples
 transitionProperty = forAll dimensions $ (\n ->
-                     forAll (transitions n) $ (\f ->
+                     forAll (xorTransitions n) $ (\f ->
                      forAll (dimNStates n) $ (\state ->
                        let transition = fromFunction n f
-                           expected = Data.Set.map (++state) (states $ f state)
+                           expected = S.map (++state) (states $ f state)
                         --Verify that the transition set contains every expected value.
-                        in notMember False (Data.Set.map (transition `contains`) expected))))
+                        in S.notMember False (S.map (transition `contains`) expected))))
 
 --Check that the transition pullback function pulls back to states from which we can reach the goal image.
 transitionPullbackProperty = forAll dimensions $ (\n ->
-                             forAll (transitions n) $ (\f ->
+                             forAll (xorTransitions n) $ (\f ->
                              forAll (listOf (dimNStates n)) $ (\stateList ->
                                let transition = fromFunction n f
-                                   image = fromExplicit (Explicit (Data.Set.fromList stateList) n)
-                                   preImage = elems.states.toExplicit $ throughTransition image transition
+                                   image = fromExplicit (Explicit (S.fromList stateList) n)
+                                   preImage = S.elems . states . toExplicit $ throughTransition image transition
                                    hasAnyFResultsInImage = (\preImageState ->
-                                                           Prelude.any (image `contains`) (elems.states.f $ preImageState))
-                                in Prelude.all hasAnyFResultsInImage preImage)))
+                                                           any (image `contains`) (S.elems . states . f $ preImageState))
+                                in all hasAnyFResultsInImage preImage)))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.
 mapToStateListTest = let hash = Data.Map.fromList [(4, True), (6, False)]
@@ -63,4 +63,4 @@ mapToStateListTest = let hash = Data.Map.fromList [(4, True), (6, False)]
                                     , [True, True, False, False]
                                     , [True, False, False, True]
                                     , [True, False, False, False] ]
-                      in Data.Set.fromList (rebaseMapToState 4 hash) @?= Data.Set.fromList expected
+                      in S.fromList (rebaseMapToState 4 hash) @?= S.fromList expected

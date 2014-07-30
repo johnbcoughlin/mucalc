@@ -20,8 +20,8 @@ forAllStates prop = forAll dimensions $ (\n ->
 --Generates transition functions which XOR a state with a list of bit masks
 xorMaskGen = dimNStates
 
-transitions :: Int -> Gen (State -> ExplicitStateSet)
-transitions n = (\masks -> (\state ->
+xorTransitions :: Int -> Gen (State -> ExplicitStateSet)
+xorTransitions n = (\masks -> (\state ->
                     Explicit (Data.Set.map (\bit ->
                       Prelude.map (/=bit) state)
                     (Data.Set.fromList masks)) n)

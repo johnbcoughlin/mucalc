@@ -2,8 +2,8 @@ module MuCalc.States where
 
 import OBDD
 import Prelude hiding ((||), or, and, not)
-import Data.Map hiding (map, foldl, singleton, findMin, fromList)
-import Data.Set hiding (foldl, singleton)
+import qualified Data.Map as M
+import qualified Data.Set as S
 import Data.Bits
 import Data.Maybe (fromMaybe)
 
@@ -13,7 +13,7 @@ data StateSet = Implicit { obdd :: (OBDD Int)
                          , setDim :: Int
                          }
 
-data ExplicitStateSet = Explicit { states :: Set State
+data ExplicitStateSet = Explicit { states :: S.Set State
                                  , explicitDim :: Int
                                  }
                                  deriving (Eq)
@@ -51,17 +51,17 @@ contains set state = satisfiable $ foldl inject (obdd set) [0..n-1]
 
 singleton :: State -> StateSet
 singleton state = let n = length state
-                      units = Prelude.map (\i -> (unit i (state !! i))) [0..n-1]
+                      units = map (\i -> (unit i (state !! i))) [0..n-1]
                    in Implicit (OBDD.and units) n
 
 fromExplicit :: ExplicitStateSet -> StateSet
-fromExplicit set = Data.Set.foldl' (\accum -> (\state -> accum `setOr` (singleton state)))
+fromExplicit set = S.foldl' (\accum -> (\state -> accum `setOr` (singleton state)))
                                    (newBottom (explicitDim set))
                                    (states set)
 
 --Used for testing
 toExplicit :: StateSet -> ExplicitStateSet
-toExplicit set = Explicit (fromList $ Prelude.filter (set `contains`) (enumerateStates n)) n
+toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates n)) n
   where n = setDim set
 
 {-
@@ -75,10 +75,10 @@ type Transition = StateSet
 fromFunction :: Int -> (State -> ExplicitStateSet) -> Transition
 fromFunction dim f = foldl (\accum -> (\transition -> accum `setOr` transition))
                            (newBottom (dim * 2))
-                           (Prelude.map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
+                           (map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
 
 fromSingleFunctionApplication :: State -> ExplicitStateSet -> Int -> Transition
-fromSingleFunctionApplication input output dim = let combinedVectors = Data.Set.map (++input) (states output)
+fromSingleFunctionApplication input output dim = let combinedVectors = S.map (++input) (states output)
                                                   in fromExplicit (Explicit combinedVectors dim)
 
 --The set of states from which a phi-state is reachable through the given Transition
@@ -94,22 +94,22 @@ forceTransition phi tr = tr `setAnd` phi
 enumerateStates :: Int -> [State]
 enumerateStates dim = let cardinality = 2^dim::Int
                           ints = [0..cardinality-1]
-                          toBitList = (\n -> Prelude.map (testBit n) [0..dim-1])
-                        in Prelude.map toBitList ints
+                          toBitList = (\n -> map (testBit n) [0..dim-1])
+                        in map toBitList ints
 
 rebase :: Transition -> StateSet
 rebase tr = let n = (setDim tr) `div` 2
-                justInputs = exists_many (fromList [0..n-1]) (obdd tr)
+                justInputs = exists_many (S.fromList [0..n-1]) (obdd tr)
                 hashes = all_models justInputs
                 stateList = concatMap (rebaseMapToState n) hashes
-                explicit = Explicit (fromList stateList) n
+                explicit = Explicit (S.fromList stateList) n
              in fromExplicit explicit
 
-rebaseMapToState :: Int -> Map Int Bool -> [State]
+rebaseMapToState :: Int -> M.Map Int Bool -> [State]
 rebaseMapToState n hash = let allStates = enumerateStates n
-                              matchesAtEveryIndex = (\state -> Prelude.all (\i ->
+                              matchesAtEveryIndex = (\state -> all (\i ->
                                                       (state !! i) == (fromMaybe
                                                                         (state !! i)
-                                                                        (Data.Map.lookup (i+n) hash)))
+                                                                        (M.lookup (i+n) hash)))
                                                     [0..n-1])
-                           in Prelude.filter matchesAtEveryIndex allStates
+                           in filter matchesAtEveryIndex allStates
