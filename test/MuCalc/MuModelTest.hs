@@ -9,6 +9,7 @@ import MuCalc.MuModel
 import Test.HUnit hiding (State)
 import MuCalc.Generators
 
+import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 
@@ -16,6 +17,7 @@ testList = [ testProperty "proposition" propositionProperty
            , testProperty "negation" negationProperty
            , testProperty "disjunction" disjunctionProperty
            , testProperty "conjunction" conjunctionProperty
+           , testCase "variable parity" variableParityTest
            ]
 
 implies p q = (not p) || q
@@ -68,6 +70,22 @@ conjunctionProperty = forAll dimensions $ (\n ->
                             prop4 = (intersectionSet `contains` state ==> psiSet `contains` state)
                          in (prop1 .||. prop2) .&&. (prop3 .&&. prop4)))))
 
+bContext = Data.Map.fromList [("A", (newBottom 2, True))]
+goodParityFormula = Or (Proposition 0)
+                       (Negation (And (Negation (Variable "A"))
+                                      (Proposition 1)))
+goodParityRealization = realizeAux goodParityFormula bContext (newMuModel 2)
+goodParityAssertion = case goodParityRealization of
+                        Left error -> False
+                        Right _ -> True
+
+badParityFormula = Negation (Variable "A")
+badParityRealization = realizeAux badParityFormula bContext (newMuModel 2)
+badParityAssertion = case badParityRealization of
+                       Left VariableParityError -> True
+                       Right _ -> True
+
+variableParityTest = True @?= (goodParityAssertion && badParityAssertion)
 
 setNthElement :: [a] -> Int -> a -> [a]
 setNthElement xs i val = fnt ++ val : bck
