@@ -39,7 +39,7 @@ explicitBijectionProperty = forAll dimensions $ (\n ->
 
 --Expect the [output, input] pair of n-vector tuples
 transitionProperty = forAll dimensions $ (\n ->
-                     forAll (xorTransitions n) $ (\f ->
+                     forAll (iffTransitions n) $ (\f ->
                      forAll (dimNStates n) $ (\state ->
                        let transition = fromFunction n f
                            expected = S.map (++state) (states $ f state)
@@ -48,7 +48,7 @@ transitionProperty = forAll dimensions $ (\n ->
 
 --Check that the transition pullback function pulls back to states from which we can reach the goal image.
 transitionPullbackProperty = forAll dimensions $ (\n ->
-                             forAll (xorTransitions n) $ (\f ->
+                             forAll (iffTransitions n) $ (\f ->
                              forAll (listOf (dimNStates n)) $ (\stateList ->
                                let transition = fromFunction n f
                                    image = fromExplicit (Explicit (S.fromList stateList) n)

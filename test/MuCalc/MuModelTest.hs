@@ -10,24 +10,25 @@ import MuCalc.Utils
 import Test.HUnit hiding (State)
 import MuCalc.Generators
 
+import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 
-testList = [ testProperty "proposition" propositionProperty
-           , testProperty "negation" negationProperty
-           , testProperty "disjunction" disjunctionProperty
-           , testProperty "conjunction" conjunctionProperty
+testList = [ testGroup "Formula Properties" formulaProperties
            , testCase "variable parity success" positiveVariableParityTest
            , testCase "variable parity failure" negativeVariableParityTest
-           , testCase "setOneTrue" setOneTrueTest
+           , testGroup "setOneTrue" setOneTrueTests
            , testCase "allFalse" allFalseTest
            , testCase "exactlyOneTrue" exactlyOneTrueTest
            , testCase "allTrue" allTrueTest
-           , testCase "allFalseUnreachable" allFalseUnreachableTest
+           , testCase "allFalseReachable" allFalseReachableTest
            , testCase "exactlyOneTrueReachable" exactlyOneTrueReachableTest
+           , testProperty "least fixpoint" leastFixpointProperty
            ]
 
+formulaProperties = zipWith testProperty ["proposition", "negation", "disjunction", "conjunction"]
+                                         [propositionProperty, negationProperty, disjunctionProperty, conjunctionProperty]
 propositionProperty = forAll dimensions $ (\n ->
                       forAll (models n) $ (\model ->
                       forAll (dimNStates n) $ (\state ->
@@ -38,38 +39,33 @@ propositionProperty = forAll dimensions $ (\n ->
                               whenFail' (putStrLn $ show set)
                                         ((set `contains` (setNthElement state i bool) `iff` bool))))))))
 
-negationProperty = forAll dimensions $ (\n ->
-                   forAll (models n) $ (\model ->
-                   forAll (formulas n) $ (\phi ->
+negationProperty = forAllModels $ (\(model, formulas, _) ->
+                   forAll (formulas) $ (\phi ->
                      extract (realize phi model) (\phiSet ->
                      extract (realize (Negation phi) model) (\notPhiSet ->
-                       property $ notPhiSet == setNot phiSet)))))
+                       property $ notPhiSet == setNot phiSet))))
 
-disjunctionProperty = forAll dimensions $ (\n ->
-                      forAll (models n) $ (\model -> let fn = (formulas n) in
-                      forAll (pure (,) <*> fn <*> fn) $ (\(phi, psi) ->
-                      forAll (dimNStates n) $ (\state ->
+disjunctionProperty = forAllModels $ (\(model, formulas, _) ->
+                      forAll (pairsOf formulas) $ (\(phi, psi) ->
                         extract (realize phi model) (\phiSet ->
                         extract (realize psi model) (\psiSet ->
                         extract (realize (Or phi psi) model) (\unionSet ->
-                          let prop1 = (phiSet `contains` state ==> unionSet `contains` state)
-                              prop2 = (psiSet `contains` state ==> unionSet `contains` state)
-                              prop3 = (unionSet `contains` state ==> phiSet `contains` state)
-                              prop4 = (unionSet `contains` state ==> psiSet `contains` state)
-                           in (prop1 .&&. prop2) .&&. (prop3 .||. prop4))))))))
+                          let subset = subsetN $ dimension model
+                           in phiSet `subset` unionSet .&&.
+                              psiSet `subset` unionSet .&&.
+                              unionSet `subset` setOr phiSet psiSet)))))
 
-conjunctionProperty = forAll dimensions $ (\n ->
-                      forAll (models n) $ (\model -> let fn = (formulas n) in
-                      forAll (pure (,) <*> fn <*> fn) $ (\(phi, psi) ->
-                      forAll (dimNStates n) $ (\state ->
+conjunctionProperty = forAllModels $ (\(model, formulas, _) ->
+                      forAll (pairsOf formulas) $ (\(phi, psi) ->
                         extract (realize phi model) (\phiSet ->
                         extract (realize psi model) (\psiSet ->
                         extract (realize (And phi psi) model) (\intersectionSet ->
-                          let prop1 = (phiSet `contains` state ==> intersectionSet `contains` state)
-                              prop2 = (psiSet `contains` state ==> intersectionSet `contains` state)
-                              prop3 = (intersectionSet `contains` state ==> phiSet `contains` state)
-                              prop4 = (intersectionSet `contains` state ==> psiSet `contains` state)
-                           in (prop1 .||. prop2) .&&. (prop3 .&&. prop4))))))))
+                          let subset = subsetN $ dimension model
+                           in intersectionSet `subset` phiSet .&&.
+                              intersectionSet `subset` psiSet .&&.
+                              setAnd phiSet psiSet `subset` intersectionSet)))))
+
+
 
 aContext = M.fromList [("A", (newBottom 2, True))]
 aModel = newMuModel 2
@@ -96,12 +92,13 @@ setOneTrue s = let n = length s
                              then [setNthElement s i True]
                              else []
                    list = concatMap f [0..n-1]
-                in S.fromList list
+                in S.fromList (s:list)
 
-setOneTrueTest = let s1Test = setOneTrue [True, False] == S.fromList [[True, True]]
-                     s2Test = setOneTrue [True, True] == S.fromList []
-                     s3Test = setOneTrue [False, False] == S.fromList [[True, False], [False, True]]
-                  in assert (s1Test && s2Test && s3Test)
+setOneTrueTests = zipWith testCase ["true-false", "true-true", "false-false"]
+                                   [s1Test,       s2Test,      s3Test]
+s1Test = setOneTrue [True, False] @?= S.fromList [[True, False], [True, True]]
+s2Test = setOneTrue [True, True] @?= S.fromList [[True, True]]
+s3Test = setOneTrue [False, False] @?= S.fromList [[False, False], [True, False], [False, True]]
 
 explicitOfN :: Int -> S.Set State -> ExplicitStateSet
 explicitOfN n set = Explicit set n
@@ -115,6 +112,7 @@ allFalse = And (Negation (Proposition 0))
 exactlyOneTrue = Or (And (Proposition 0) (And (Negation (Proposition 1)) (Negation (Proposition 2))))
                 (Or (And (Proposition 1) (And (Negation (Proposition 0)) (Negation (Proposition 2))))
                     (And (Proposition 2) (And (Negation (Proposition 0)) (Negation (Proposition 1)))))
+exactlyOneTrueList = [[True, False, False] , [False, True, False] , [False, False, True]]
 allTrue = And (Proposition 0)
          (And (Proposition 1)
               (Proposition 2))
@@ -124,21 +122,18 @@ allFalseTest = assertRealization (realize allFalse m) $ (\set ->
                  assert (set == S.fromList [[False, False, False]]))
 
 exactlyOneTrueTest = assertRealization (realize exactlyOneTrue m) $ (\set ->
-                       assert (set == S.fromList [ [True, False, False]
-                                                 , [False, True, False]
-                                                 , [False, False, True]
-                                                 ]))
+                       assert (set == S.fromList exactlyOneTrueList))
 
 allTrueTest = assertRealization (realize allTrue m) $ (\set ->
                 assert (set == S.fromList [[True, True, True]]))
 
 --Test the reachability of the states through the transition
-allFalseUnreachableTest = let phi = PossiblyNext "setOneTrue" allFalse
+allFalseReachableTest = let phi = PossiblyNext "setOneTrue" allFalse
                            in assertRealization (realize phi m) $ (\set ->
-                                assert (S.null set))
+                                assert (set == S.fromList [[False, False, False]]))
 
 exactlyOneTrueReachableTest = let phi = PossiblyNext "setOneTrue" exactlyOneTrue
                                in assertRealization (realize phi m) $ (\set ->
-                                    assert (set == S.fromList [[False, False, False]]))
+                                    assert (set == S.fromList ([False, False, False] : exactlyOneTrueList)))
 
-
+leastFixpointProperty = property True
