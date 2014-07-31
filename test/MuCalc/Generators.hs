@@ -93,8 +93,8 @@ allFormulas c = frequency [ (cf c Prop, propositions c)
                        , (cf c Fixp, fixpointOperators c)
                        ]
 
-formulas model = let cfs = M.fromList [(Prop, 2), (Var, 2), (Neg, 2), (Disj, 3),
-                                       (Conj, 3), (Trans, 2), (Fixp, 2)]
+formulas model = let cfs = M.fromList [(Prop, 2), (Var, 2), (Neg, 2), (Disj, 2),
+                                       (Conj, 2), (Trans, 2), (Fixp, 2)]
                      c = baseContext model
                   in allFormulas (c {freqs = cfs})
 
