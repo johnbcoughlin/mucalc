@@ -17,17 +17,20 @@ data MuModel = MuModel { dimension :: Int --Number of atomic propositions, thus 
 newMuModel :: Int -> MuModel
 newMuModel n = MuModel { dimension=n, transitions=M.empty, bottom=(newBottom n), top=(newTop n) }
 
-type Context = M.Map String (StateSet, Bool)
+data Context = Context { parity :: Bool
+                       , env :: (M.Map String StateSet)
+                       }
 
 data RealizationError = VariableParityError | PropositionIndexError |
-                        InvalidTransitionError | VariableBindingError
-    deriving (Eq)
+                        InvalidTransitionError | AlreadyBoundVariableError |
+                        UnknownVariableError
+    deriving (Eq, Show)
 
 type Realization = Either RealizationError StateSet
 
 --Construct the set of states of this model which satisfy the given formula.
 realize :: MuFormula -> MuModel -> Realization
-realize phi = realizeAux phi M.empty
+realize phi = realizeAux phi (Context {parity=True, env=M.empty})
 
 realizeAux :: MuFormula -> Context -> MuModel -> Realization
 realizeAux (Proposition n) = realizeProposition n
@@ -36,6 +39,7 @@ realizeAux (Or f1 f2) = realizeDisjunction f1 f2
 realizeAux (And f1 f2) = realizeConjunction f1 f2
 realizeAux (Variable var) = realizeVariable var
 realizeAux (PossiblyNext transition f) = realizeTransition transition f
+realizeAux (Mu var f) = realizeMu var f
 
 realizeProposition :: Int -> Context -> MuModel -> Realization
 realizeProposition i _ m = case (0 <= i) && (i < dimension m) of
@@ -43,7 +47,7 @@ realizeProposition i _ m = case (0 <= i) && (i < dimension m) of
                              True -> Right $ (top m) `setAnd` (Implicit (unit i True) 1)
 
 realizeNegation :: MuFormula -> Context -> MuModel -> Realization
-realizeNegation f c m = let newContext = M.map (\p -> (fst p, not (snd p))) c
+realizeNegation f c m = let newContext = c { parity = not (parity c) }
                             r = realizeAux f newContext m
                          in case r of
                            Left e -> Left e
@@ -60,11 +64,11 @@ realizeConjunction f1 f2 c m = let r1 = realizeAux f1 c m
                                 in combine setAnd r1 r2
 
 realizeVariable :: String -> Context -> MuModel -> Realization
-realizeVariable var c m = case M.lookup var c of
-                            Nothing -> Left VariableBindingError
-                            Just (set, parity) -> if parity
-                                                  then Right set
-                                                  else Left VariableParityError
+realizeVariable var c m = case M.lookup var (env c) of
+                            Nothing -> Left UnknownVariableError
+                            Just set -> if parity c
+                                        then Right set
+                                        else Left VariableParityError
 
 realizeTransition :: TransitionLabel -> MuFormula -> Context -> MuModel -> Realization
 realizeTransition label f c m = case M.lookup label (transitions m) of
@@ -75,8 +79,8 @@ realizeTransition label f c m = case M.lookup label (transitions m) of
                                                           Right states -> Right (states `throughTransition` transition)
 
 realizeMu :: String -> MuFormula -> Context -> MuModel -> Realization
-realizeMu var f c m = case M.lookup var c of
-                        Just _ -> Left VariableBindingError
+realizeMu var f c m = case M.lookup var (env c) of
+                        Just _ -> Left AlreadyBoundVariableError
                         Nothing -> leastFixpoint var f c m
 
 leastFixpoint :: String -> MuFormula -> Context -> MuModel -> Realization
@@ -86,8 +90,8 @@ leastFixpoint var f c m = let loop = fixpointLoop var f c m
 
 fixpointLoop :: String -> MuFormula -> Context -> MuModel -> Realization -> Realization
 fixpointLoop var f c m (Left error) = Left error
-fixpointLoop var f c m (Right state) = let newContext = M.adjust (\p -> (state, snd p)) var c
-                                        in realizeAux f newContext m
+fixpointLoop var f c m (Right state) = let newEnv = M.insert var state (env c)
+                                        in realizeAux f (c {env=newEnv}) m
 
 --Should be TCOed
 fixpoint :: (a -> a) -> (a -> a -> Bool) -> a -> a

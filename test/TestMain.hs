@@ -5,6 +5,8 @@ import Test.Framework
 import Test.Framework.Providers.QuickCheck2
 import MuCalc.StatesTest (testList)
 import MuCalc.MuModelTest (testList)
+import MuCalc.Generators
+import Test.QuickCheck
 
 main = defaultMain tests
 

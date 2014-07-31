@@ -22,12 +22,15 @@ pairsOf g = pure (,) <*> g <*> g
 forAllStates prop = forAll dimensions $ (\n ->
                     forAll (dimNStates n) $ prop)
 
-forAllModels :: ((MuModel, Gen MuFormula, Gen State) -> Property) -> Property
-forAllModels prop = forAll dimensions $ (\n ->
-                    forAll (models n) $ (\model ->
-                      let formulaGen = baseFormulaGen model
-                          stateGen = dimNStates n
-                       in prop (model, formulaGen, stateGen)))
+type ModelTriple = (MuModel, Gen State)
+forAllModels :: (ModelTriple -> Property) -> Property
+forAllModels = forAllModelsSuchThat $ const True
+
+forAllModelsSuchThat :: (MuModel -> Bool) -> (ModelTriple -> Property) -> Property
+forAllModelsSuchThat test prop = forAll dimensions $ (\n ->
+                                 forAll (models n `suchThat` test) $ (\model ->
+                                   let stateGen = dimNStates n
+                                    in prop (model, stateGen)))
 
 
 models :: Int -> Gen MuModel
@@ -53,53 +56,93 @@ iffTransitions n = (mapMasks n) `fmap` (listOf $ iffMaskGen n)
 instance Show (State -> ExplicitStateSet) where
   show f = "tough luck"
 
-baseFormulaGen :: MuModel -> Gen MuFormula
-baseFormulaGen m = formulas (dimension m)
-                            True
-                            (M.keys (transitions m))
-                            []
+baseContext :: MuModel -> FormulaGenContext
+baseContext m = FormulaGenContext (dimension m) True (M.keys (transitions m)) [] [] M.empty
 
---                  dim    parity  transitions          variables in scope
-type MuFormulaGen = Int -> Bool -> [TransitionLabel] -> [String] -> Gen MuFormula
+data FormulaGenBranch = Prop | Var | Neg | Conj | Disj | Trans | Fixp
+                      deriving (Eq, Show, Ord)
 
-formulas :: MuFormulaGen
-formulas n parity trs vars = let fn = formulas n parity trs vars
-                              in frequency [ (4, propositions n)
-                                           , (1, pure Negation <*> fn)
-                                           , (1, pure Or <*> fn <*> fn)
-                                           , (1, pure And <*> fn <*> fn)
-                                           ]
+data FormulaGenContext = FormulaGenContext { dim :: Int
+                                           , prty :: Bool
+                                           , trs :: [TransitionLabel]
+                                           , vars :: [String]
+                                           , usedVars :: [String]
+                                           , freqs :: M.Map FormulaGenBranch Int
+                                           }
 
-propositions n = Proposition <$> elements [0..n-1]
+cf c k = M.findWithDefault 0 k . freqs $ c
 
-negations :: MuFormulaGen
-negations n parity trs vars = pure Negation <*> formulas n (not parity) trs vars
+reduceBranching context = let dec = (\i -> if i == 0 then 0 else i - 1)
+                              newFreqs = foldr (\k ->
+                                               (\m -> M.adjust dec k m)) (freqs context) [Disj, Conj, Neg, Fixp, Var, Trans]
+                           in (context {freqs = newFreqs})
 
-disjunctions :: MuFormulaGen
-disjunctions n parity trs vars = let fs = formulas n parity trs vars
-                                  in pure Or <*> fs <*> fs
+allFormulas :: FormulaGenContext -> Gen MuFormula
+allFormulas c = frequency [ (cf c Prop, propositions c)
+                          , (cf c Var, if prty c
+                                  then (if length (vars c) == 1
+                                        then variables c
+                                        else disjunctions c)
+                                  else negations c)
+                       , (cf c Neg, negations c)
+                       , (cf c Disj, disjunctions c)
+                       , (cf c Conj, conjunctions c)
+                       , (cf c Trans, if not (null (trs c))
+                                    then possiblyNexts c
+                                    else conjunctions c)
+                       , (cf c Fixp, fixpointOperators c)
+                       ]
 
-conjunctions :: MuFormulaGen
-conjunctions n parity trs vars = let fs = formulas n parity trs vars
-                                  in pure And <*> fs <*> fs
+formulas model = let cfs = M.fromList [(Prop, 2), (Var, 2), (Neg, 2), (Disj, 3),
+                                       (Conj, 3), (Trans, 2), (Fixp, 2)]
+                     c = baseContext model
+                  in allFormulas (c {freqs = cfs})
+
+--No variables
+negatableFormulas model = let cfs = M.fromList [(Prop, 3), (Disj, 2), (Conj, 2), (Trans, 2)]
+                              c = baseContext model
+                           in allFormulas (c {freqs = cfs})
+
+--
+
+propositions c = let n = dim c
+                  in Proposition <$> elements [0..n-1]
+
+negations c = let p = prty c
+                  newContext = (reduceBranching c) {prty = not p}
+               in pure Negation <*> allFormulas newContext
+
+--If there are variables left to use, then assign one to the left and the rest to the right
+disjunctions context = let v = vars context
+                           c = reduceBranching context
+                        in if null v
+                           then pure Or <*> allFormulas c <*> allFormulas c
+                           else pure Or <*> allFormulas (c { vars = [head v] })
+                                        <*> allFormulas (c { vars = (tail v) })
+
+conjunctions context = let v = vars context
+                           c = reduceBranching context
+                        in if null v
+                           then pure And <*> allFormulas c  <*> allFormulas c
+                           else pure And <*> allFormulas (c { vars = [head v] })
+                                         <*> allFormulas (c { vars = (tail v) })
 
 --Pick a variable at random from the list of bound vars.
 --We'll check if the parity is right in the top level generator
-variables :: MuFormulaGen
-variables n parity trs vars = pure Variable <*> elements vars
+variables c = pure Variable <*> elements (vars c)
 
 --Pick a transition label at random from the list of known transitions
-possiblyNexts :: MuFormulaGen
-possiblyNexts n parity trs vars = let fs = formulas n parity trs vars
-                                   in pure PossiblyNext <*> elements trs <*> fs
+possiblyNexts c = pure PossiblyNext <*> elements (trs c) <*> allFormulas c
 
-fixpointOperators :: MuFormulaGen
-fixpointOperators n parity trs vars = let i = if null vars
-                                              then 65 --start with "A"
-                                              else (ord . head . head $ vars) + 1 --otherwise the first unused character
-                                          var = [chr i]
-                                          newVars = var:vars
-                                       in pure (Mu var) <*> formulas n parity trs newVars
+fixpointOperators c = let used = usedVars c
+                          i = if null used
+                              then 65 --start with "A"
+                              else (ord . head . head $ used) + 1 --otherwise the first unused character
+                          var = [chr i]
+                          newUsed = var:used
+                          newVars = var:(vars c)
+                          newContext = (reduceBranching c) {vars=newVars, usedVars=newUsed}
+                       in pure (Mu var) <*> allFormulas newContext
 
 subsetN :: Int -> StateSet -> StateSet -> Property
 subsetN n p q = forAll (dimNStates n) $ (\state ->

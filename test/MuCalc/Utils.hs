@@ -6,7 +6,10 @@ import MuCalc.MuFormula
 import MuCalc.States
 import MuCalc.MuModel
 import Test.QuickCheck
-import Test.HUnit hiding (State)
+import Test.HUnit hiding (State, Test)
+import Test.Framework.Providers.QuickCheck2
+import Test.Framework.Providers.HUnit
+import Test.Framework
 
 isLeft = either (const True) (const False)
 isRight = not . isLeft
@@ -16,7 +19,7 @@ iff p q = (p `implies` q) && (q `implies` p)
 
 --Chain these guys for maximum fun
 extract :: Realization -> (StateSet -> Property) -> Property
-extract (Left error) = const (property False) --ignore the given property computation
+extract (Left e) = error $ show e --ignore the given property computation
 extract (Right set) = ($set) --apply the given computation to the set
 
 assertRealization :: Realization -> (S.Set State -> Assertion) -> Assertion
@@ -30,4 +33,8 @@ setNthElement xs i val = fnt ++ val : bck
         bck = tail (snd pair)
         pair = splitAt i xs
 
+zipProperties :: [(String, Property)] -> [Test]
+zipProperties = uncurry (zipWith testProperty) . unzip
 
+zipTestCases :: [(String, Assertion)] -> [Test]
+zipTestCases = uncurry (zipWith testCase) . unzip
