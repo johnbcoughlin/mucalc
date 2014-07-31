@@ -1,5 +1,17 @@
 {-# LANGUAGE FlexibleInstances #-}
-module MuCalc.Generators where
+module MuCalc.Generators ( dimensions
+                         , dimNStates
+                         , models
+                         , pairsOf
+                         , forAllModels
+                         , forAllModelsSuchThat
+                         , forAllStates
+                         , formulas
+                         , negatableFormulas
+                         , iffTransitions
+                         , subsetN
+                         )
+  where
 
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -56,6 +68,8 @@ iffTransitions n = (mapMasks n) `fmap` (listOf $ iffMaskGen n)
 instance Show (State -> ExplicitStateSet) where
   show f = "tough luck"
 
+--Generators for MuFormulas. Each generator uses a FormulaGenContext to govern dispatch.
+
 baseContext :: MuModel -> FormulaGenContext
 baseContext m = FormulaGenContext (dimension m) True (M.keys (transitions m)) [] [] M.empty
 
@@ -72,6 +86,8 @@ data FormulaGenContext = FormulaGenContext { dim :: Int
 
 cf c k = M.findWithDefault 0 k . freqs $ c
 
+--We reduce branching every time it happens to ensure that the generator terminates in a timely fashion.
+--"Branching" also includes linear operators like negation and transition.
 reduceBranching context = let dec = (\i -> if i == 0 then 0 else i - 1)
                               newFreqs = foldr (\k ->
                                                (\m -> M.adjust dec k m)) (freqs context) [Disj, Conj, Neg, Fixp, Var, Trans]
@@ -102,8 +118,6 @@ formulas model = let cfs = M.fromList [(Prop, 2), (Var, 2), (Neg, 2), (Disj, 2),
 negatableFormulas model = let cfs = M.fromList [(Prop, 3), (Disj, 2), (Conj, 2), (Trans, 2)]
                               c = baseContext model
                            in allFormulas (c {freqs = cfs})
-
---
 
 propositions c = let n = dim c
                   in Proposition <$> elements [0..n-1]
@@ -143,6 +157,8 @@ fixpointOperators c = let used = usedVars c
                           newVars = var:(vars c)
                           newContext = (reduceBranching c) {vars=newVars, usedVars=newUsed}
                        in pure (Mu var) <*> allFormulas newContext
+
+--Convenient properties--
 
 subsetN :: Int -> StateSet -> StateSet -> Property
 subsetN n p q = forAll (dimNStates n) $ (\state ->

@@ -114,7 +114,7 @@ muTestCases = zipTestCases [ ("Least fixpoint of constant", constantFixpointTest
                            , ("Least fixpoint of conjunction", simpleAndFixpointTest)
                            , ("Unbound variable check", unboundVariableCheck)
                            , ("Exactly two true fixpoint", exactlyTwoTrueFixpointTest)
-                           , ("Exactly one true fixpoin", exactlyOneTrueFixpointTest)
+                           , ("Exactly one true fixpoint", exactlyOneTrueFixpointTest)
                            ]
 
 --The least fixpoint of a constant function should be the constant
