@@ -6,3 +6,5 @@ profiling/*
 *.o
 examples/*
 !examples/*.hs
+
+report.html

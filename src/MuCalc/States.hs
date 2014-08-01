@@ -46,16 +46,16 @@ setNot set = Implicit (not $ obdd set) (setDim set)
 
 contains :: StateSet -> State -> Bool
 contains set state = satisfiable $ foldl inject (obdd set) [0..n-1]
-  where inject = \cur -> \i -> instantiate i (state !! i) cur
+  where inject cur i = instantiate i (state !! i) cur
         n = setDim set
 
 singleton :: State -> StateSet
 singleton state = let n = length state
-                      units = map (\i -> (unit i (state !! i))) [0..n-1]
+                      units = map (\i -> unit i (state !! i)) [0..n-1]
                    in Implicit (OBDD.and units) n
 
 fromExplicit :: ExplicitStateSet -> StateSet
-fromExplicit set = S.foldl' (\accum -> (\state -> accum `setOr` (singleton state)))
+fromExplicit set = S.foldl' (\accum state -> accum `setOr` (singleton state))
                                    (newBottom (explicitDim set))
                                    (states set)
 
@@ -79,12 +79,11 @@ predicateToPhysicalTransition n f = let allStates = enumerateStates n
                                      in fromExplicit explicit
 
 fanoutToPhysicalTransition :: Int -> (State -> [State]) -> PhysicalTransition
-fanoutToPhysicalTransition n f = let explicit = (\s -> Explicit (S.fromList (f s)) n)
+fanoutToPhysicalTransition n f = let explicit s = Explicit (S.fromList (f s)) n
                                   in fromFunction n explicit
 
 fromFunction :: Int -> (State -> ExplicitStateSet) -> PhysicalTransition
-fromFunction dim f = foldl (\accum -> (\transition -> accum `setOr` transition))
-                           (newBottom (dim * 2))
+fromFunction dim f = foldl setOr (newBottom (dim * 2))
                            (map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
 
 fromSingleFunctionApplication :: State -> ExplicitStateSet -> Int -> PhysicalTransition
@@ -104,7 +103,7 @@ forceTransition phi tr = tr `setAnd` phi
 enumerateStates :: Int -> [State]
 enumerateStates dim = let cardinality = 2^dim::Int
                           ints = [0..cardinality-1]
-                          toBitList = (\n -> map (testBit n) [0..dim-1])
+                          toBitList n = map (testBit n) [0..dim-1]
                         in map toBitList ints
 
 rebase :: PhysicalTransition -> StateSet
@@ -117,9 +116,9 @@ rebase tr = let n = (setDim tr) `div` 2
 
 rebaseMapToState :: Int -> M.Map Int Bool -> [State]
 rebaseMapToState n hash = let allStates = enumerateStates n
-                              matchesAtEveryIndex = (\state -> all (\i ->
+                              matchesAtEveryIndex state = all (\i ->
                                                       (state !! i) == (fromMaybe
                                                                         (state !! i)
                                                                         (M.lookup (i+n) hash)))
-                                                    [0..n-1])
+                                                      [0..n-1]
                            in filter matchesAtEveryIndex allStates
