@@ -8,7 +8,7 @@ module MuCalc.Integration (testList) where
 -}
 
 import Test.Framework
-import Test.HUnit hiding (State)
+import Test.HUnit
 import Test.Framework.Providers.HUnit
 import Test.QuickCheck
 import Test.Framework.Providers.QuickCheck2
@@ -41,12 +41,12 @@ positions = pairsOf $ elements [0..3]
 isInBounds :: Position -> Bool
 isInBounds (x, y) = x >= 0 && x < 4 && y >= 0 && y < 4
 
-posToState :: Position -> State
+posToState :: Position -> PState
 posToState (x, y) = if not (isInBounds (x, y))
                     then error ("Out of bounds: " ++ show (x, y))
                     else [x >= 2, x `mod` 2 == 1, y >= 2, y `mod` 2 == 1]
 
-stateToPos :: State -> Position
+stateToPos :: PState -> Position
 stateToPos state = if length state /= 4
                    then error ("Wrong size state: " ++ show state)
                    else let x = (2 * if (head state) then 1 else 0) + (if (state !! 1) then 1 else 0)
@@ -56,8 +56,8 @@ stateToPos state = if length state /= 4
 translateProposition :: (Position -> Bool) -> Proposition
 translateProposition pred = Proposition $ pred . stateToPos
 
-translateTransition :: (Position -> [Position]) -> Transition
-translateTransition f = Transition $ (map posToState) . f . stateToPos
+translateAction :: (Position -> [Position]) -> Action
+translateAction f = Action $ (map posToState) . f . stateToPos
 
 --Check that we're converting back and forth correctly
 posStateProperty = forAll (positions) (\pos ->
@@ -70,7 +70,7 @@ posStateProperty = forAll (positions) (\pos ->
 dim = 4
 
 {-
-- Construct a transition. The bot is allowed to move from its current position to one
+- Construct a action. The bot is allowed to move from its current position to one
 - square away, and the main diagonal of the room is blocked.
 -}
 move :: Position -> [Position]
@@ -100,7 +100,7 @@ isInitial _ = False
 isWinning (3, 0) = True
 isWinning _ = False
 isPassable (x, y) = x /= y
-model = (newMuModel dim) `withTransitions` (M.singleton "move" (translateTransition move))
+model = (newMuModel dim) `withActions` (M.singleton "move" (translateAction move))
                          `withPropositions` M.map translateProposition (M.fromList [ ("initial", isInitial)
                                                                                    , ("winning", isWinning)
                                                                                    , ("passable", isPassable)

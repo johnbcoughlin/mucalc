@@ -8,7 +8,7 @@ module MuCalc.Generators ( dimensions
                          , forAllStates
                          , formulas
                          , negatableFormulas
-                         , iffTransitions
+                         , iffActions
                          , subsetN
                          )
   where
@@ -34,7 +34,7 @@ pairsOf g = pure (,) <*> g <*> g
 forAllStates prop = forAll dimensions (\n ->
                     forAll (dimNStates n) prop)
 
-type ModelTriple = (MuModel, Gen State)
+type ModelTriple = (MuModel, Gen PState)
 forAllModels :: (ModelTriple -> Property) -> Property
 forAllModels = forAllModelsSuchThat $ const True
 
@@ -46,44 +46,44 @@ forAllModelsSuchThat test prop = forAll dimensions (\n ->
 
 
 models :: Int -> Gen MuModel
-models n = let base = (newMuModel n) `withPropositions` (Proposition `fmap` eqPropositions n)
-               transitionLists = listOf (Transition `fmap` iffTransitions n)
-            in (\trList -> let count = length trList
-                               itoa i = "Tr:" ++ [chr (i + 65)]
-                               trNames = map itoa [0..count]
-                               trMap = M.fromList $ zip trNames trList
-                            in base `withTransitions` trMap) <$> transitionLists
+models n = let base = (newMuModel n) `withPropositions` (eqPropositions n)
+               actionLists = listOf (iffActions n)
+            in (\aList -> let count = length aList
+                               itoa i = "A:" ++ [chr (i + 65)]
+                               aNames = map itoa [0..count]
+                               aMap = M.fromList $ zip aNames aList
+                            in base `withActions` aMap) <$> actionLists
 
 --A map of named propositions, each of which checks the value of a state at the given index.
 eqPropositions n = let forIndex i = (!!i)
                        singletons = map (\i -> M.singleton (show i) (forIndex i)) [0..n-1]
                     in M.unions singletons
 
---Generates transition functions which IFF a state with a list of bit masks,
+--Generates action functions which IFF a state with a list of bit masks,
 --plus the current state.
 iffMaskGen = dimNStates
 
-mapMasks :: Int -> [State] -> State -> [State]
+mapMasks :: Int -> [PState] -> PState -> [PState]
 mapMasks n masks state = map (zipWith (&&) state) (state : masks)
 
-iffTransitions :: Int -> Gen (State -> [State])
-iffTransitions n = ((mapMasks n) `fmap` listOf (iffMaskGen n))
+iffActions :: Int -> Gen (PState -> [PState])
+iffActions n = ((mapMasks n) `fmap` listOf (iffMaskGen n))
 
-instance Show (State -> [State]) where
+instance Show (PState -> [PState]) where
   show f = "tough luck"
 
 --Generators for MuFormulas. Each generator uses a FormulaGenContext to govern dispatch.
 
 baseContext :: MuModel -> FormulaGenContext
-baseContext m = FormulaGenContext (dimension m) True (M.keys (props m)) (M.keys (transitions m)) [] [] M.empty
+baseContext m = FormulaGenContext (dimension m) True (M.keys (props m)) (M.keys (actions m)) [] [] M.empty
 
-data FormulaGenBranch = Prop | Var | Neg | Conj | Disj | Trans | Fixp
+data FormulaGenBranch = Prop | Var | Neg | Conj | Disj | Action | Fixp
                       deriving (Eq, Show, Ord)
 
 data FormulaGenContext = FormulaGenContext { dim :: Int
                                            , prty :: Bool
-                                           , pLabels :: [PropositionLabel]
-                                           , trLabels :: [TransitionLabel]
+                                           , pLabels :: [String]
+                                           , trLabels :: [String]
                                            , vars :: [String]
                                            , usedVars :: [String]
                                            , freqs :: M.Map FormulaGenBranch Int
@@ -92,9 +92,9 @@ data FormulaGenContext = FormulaGenContext { dim :: Int
 cf c k = M.findWithDefault 0 k . freqs $ c
 
 --We reduce branching every time it happens to ensure that the generator terminates in a timely fashion.
---"Branching" also includes linear operators like negation and transition.
+--"Branching" also includes linear operators like negation and action.
 reduceBranching context = let dec i = if i == 0 then 0 else i - 1
-                              newFreqs = foldr (M.adjust dec) (freqs context) [Disj, Conj, Neg, Fixp, Var, Trans]
+                              newFreqs = foldr (M.adjust dec) (freqs context) [Disj, Conj, Neg, Fixp, Var, Action]
                            in (context {freqs = newFreqs})
 
 allFormulas :: FormulaGenContext -> Gen MuFormula
@@ -107,19 +107,19 @@ allFormulas c = frequency [ (cf c Prop, atoms c)
                        , (cf c Neg, negations c)
                        , (cf c Disj, disjunctions c)
                        , (cf c Conj, conjunctions c)
-                       , (cf c Trans, if not (null (trLabels c))
+                       , (cf c Action, if not (null (actionLabels c))
                                     then possiblyNexts c
                                     else conjunctions c)
                        , (cf c Fixp, fixpointOperators c)
                        ]
 
 formulas model = let cfs = M.fromList [(Prop, 2), (Var, 2), (Neg, 2), (Disj, 2),
-                                       (Conj, 2), (Trans, 2), (Fixp, 2)]
+                                       (Conj, 2), (Action, 2), (Fixp, 2)]
                      c = baseContext model
                   in allFormulas (c {freqs = cfs})
 
 --No variables
-negatableFormulas model = let cfs = M.fromList [(Prop, 3), (Disj, 2), (Conj, 2), (Trans, 2)]
+negatableFormulas model = let cfs = M.fromList [(Prop, 3), (Disj, 2), (Conj, 2), (Action, 2)]
                               c = baseContext model
                            in allFormulas (c {freqs = cfs})
 
@@ -148,8 +148,8 @@ conjunctions context = let v = vars context
 --We'll check if the parity is right in the top level generator
 variables c = pure Variable <*> elements (vars c)
 
---Pick a transition label at random from the list of known transitions
-possiblyNexts c = pure PossiblyNext <*> elements (trLabels c) <*> allFormulas c
+--Pick an action label at random from the list of known actions
+possiblyNexts c = pure PossiblyNext <*> elements (aLabels c) <*> allFormulas c
 
 fixpointOperators c = let used = usedVars c
                           i = if null used

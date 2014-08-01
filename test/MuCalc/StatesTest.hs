@@ -4,7 +4,7 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 import MuCalc.States
 import MuCalc.Generators
-import Test.HUnit hiding (State)
+import Test.HUnit
 import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
@@ -14,8 +14,8 @@ testList = [ testProperty "empty bottom" emptyBottom
            , testProperty "singleton" singletonProp
            , testProperty "from explicit set property" fromExplicitProperty
            , testProperty "explicit bijections" explicitBijectionProperty
-           , testProperty "transition property" transitionProperty
-           , testProperty "transition pullback property" transitionPullbackProperty
+           , testProperty "Action property" actionProperty
+           , testProperty "Action pullback property" actionPullbackProperty
            , testCase "map to state list" mapToStateListTest
            ]
 
@@ -38,21 +38,21 @@ explicitBijectionProperty = forAll dimensions (\n ->
                                in explicit == toExplicit (fromExplicit explicit)))
 
 --Expect the [output, input] pair of n-vector tuples
-transitionProperty = forAll dimensions (\n ->
-                     forAll (iffTransitions n) (\f ->
+actionProperty = forAll dimensions (\n ->
+                     forAll (iffActions n) (\f ->
                      forAll (dimNStates n) (\state ->
-                       let transition = fanoutToPhysicalTransition n f
+                       let action = fanoutToPAction n f
                            expected = map (++state) (f state)
-                        --Verify that the transition set contains every expected value.
-                        in all (transition `contains`) expected)))
+                        --Verify that the action set contains every expected value.
+                        in all (action `contains`) expected)))
 
---Check that the transition pullback function pulls back to states from which we can reach the goal image.
-transitionPullbackProperty = forAll dimensions (\n ->
-                             forAll (iffTransitions n) (\f ->
+--Check that the action pullback function pulls back to states from which we can reach the goal image.
+actionPullbackProperty = forAll dimensions (\n ->
+                             forAll (iffActions n) (\f ->
                              forAll (listOf (dimNStates n)) (\stateList ->
-                               let transition = fanoutToPhysicalTransition n f
+                               let action = fanoutToPhysicalAction n f
                                    image = fromExplicit (Explicit (S.fromList stateList) n)
-                                   preImage = S.elems . states . toExplicit $ throughTransition image transition
+                                   preImage = S.elems . states . toExplicit $ throughAction image action
                                    hasAnyFResultsInImage preImageState = any (image `contains`) (f preImageState)
                                 in all hasAnyFResultsInImage preImage)))
 

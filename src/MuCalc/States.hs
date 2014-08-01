@@ -7,16 +7,17 @@ import qualified Data.Set as S
 import Data.Bits
 import Data.Maybe (fromMaybe)
 
-type State = [Bool]
+type PState = [Bool]
 
 data StateSet = Implicit { obdd :: (OBDD Int)
                          , setDim :: Int
                          }
 
-data ExplicitStateSet = Explicit { states :: S.Set State
+data ExplicitStateSet = Explicit { states :: S.Set PState
                                  , explicitDim :: Int
                                  }
                                  deriving (Eq)
+
 
 instance Show StateSet where
   show = show . all_models . obdd
@@ -44,12 +45,12 @@ setAnd set1 set2 = Implicit (obdd set1 OBDD.&& obdd set2) (setDim set1)
 setNot :: StateSet -> StateSet
 setNot set = Implicit (not $ obdd set) (setDim set)
 
-contains :: StateSet -> State -> Bool
+contains :: StateSet -> PState -> Bool
 contains set state = satisfiable $ foldl inject (obdd set) [0..n-1]
   where inject cur i = instantiate i (state !! i) cur
         n = setDim set
 
-singleton :: State -> StateSet
+singleton :: PState -> StateSet
 singleton state = let n = length state
                       units = map (\i -> unit i (state !! i)) [0..n-1]
                    in Implicit (OBDD.and units) n
@@ -65,48 +66,53 @@ toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates
   where n = setDim set
 
 {-
-- Transitions are encoded as OBDDs over two copies of the variables. We use the
+- Propositions are encoded as the set of states in which they are true.
+-}
+type PhysicalProposition = StateSet
+
+predicateToPhysicalProposition :: Int -> (PState -> Bool) -> PhysicalProposition
+predicateToPhysicalProposition n f = let allStates = enumerateStates n
+                                         trueStates = S.fromList (filter f allStates)
+                                         explicit = Explicit trueStates n
+                                      in fromExplicit explicit
+
+{-
+- Actions are encoded as OBDDs over two copies of the variables. We use the
 - first n variables for the output, so we can easily AND the resulting OBDD with
 - other OBDDs.
-- See forceTransition
+- See forceAction
 -}
-type PhysicalTransition = StateSet
+type PAction = StateSet
 
-predicateToPhysicalTransition :: Int -> (State -> Bool) -> PhysicalTransition
-predicateToPhysicalTransition n f = let allStates = enumerateStates n
-                                        trueStates = S.fromList (filter f allStates)
-                                        explicit = Explicit trueStates n
-                                     in fromExplicit explicit
-
-fanoutToPhysicalTransition :: Int -> (State -> [State]) -> PhysicalTransition
-fanoutToPhysicalTransition n f = let explicit s = Explicit (S.fromList (f s)) n
+fanoutToPAction :: Int -> (PState -> [PState]) -> PAction
+fanoutToPAction n f = let explicit s = Explicit (S.fromList (f s)) n
                                   in fromFunction n explicit
 
-fromFunction :: Int -> (State -> ExplicitStateSet) -> PhysicalTransition
+fromFunction :: Int -> (PState -> ExplicitStateSet) -> PAction
 fromFunction dim f = foldl setOr (newBottom (dim * 2))
                            (map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
 
-fromSingleFunctionApplication :: State -> ExplicitStateSet -> Int -> PhysicalTransition
+fromSingleFunctionApplication :: PState -> ExplicitStateSet -> Int -> PAction
 fromSingleFunctionApplication input output dim = let combinedVectors = S.map (++input) (states output)
                                                   in fromExplicit (Explicit combinedVectors dim)
 
---The set of states from which a phi-state is reachable through the given PhysicalTransition
-throughTransition :: StateSet -> PhysicalTransition -> StateSet
-throughTransition phi tr = rebase $ forceTransition phi tr
+--The set of states from which a phi-state is reachable through the given PAction
+throughAction :: StateSet -> PAction -> StateSet
+throughAction phi tr = rebase $ forceAction phi tr
 
---Force a transition to map onto phi-states.
+--Force an action to map onto phi-states.
 --This is done by taking the intersection of valid (output, input) tuples with the set of desired phi-outputs.
-forceTransition :: StateSet -> PhysicalTransition -> PhysicalTransition
-forceTransition phi tr = tr `setAnd` phi
+forceAction :: StateSet -> PAction -> PAction
+forceAction phi tr = tr `setAnd` phi
 
 --Whoo, power sets. This should be pretty efficient with laziness.
-enumerateStates :: Int -> [State]
+enumerateStates :: Int -> [PState]
 enumerateStates dim = let cardinality = 2^dim::Int
                           ints = [0..cardinality-1]
                           toBitList n = map (testBit n) [0..dim-1]
                         in map toBitList ints
 
-rebase :: PhysicalTransition -> StateSet
+rebase :: PAction -> StateSet
 rebase tr = let n = (setDim tr) `div` 2
                 justInputs = exists_many (S.fromList [0..n-1]) (obdd tr)
                 hashes = all_models justInputs
@@ -114,7 +120,7 @@ rebase tr = let n = (setDim tr) `div` 2
                 explicit = Explicit (S.fromList stateList) n
              in fromExplicit explicit
 
-rebaseMapToState :: Int -> M.Map Int Bool -> [State]
+rebaseMapToState :: Int -> M.Map Int Bool -> [PState]
 rebaseMapToState n hash = let allStates = enumerateStates n
                               matchesAtEveryIndex state = all (\i ->
                                                       (state !! i) == (fromMaybe

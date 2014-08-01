@@ -19,7 +19,7 @@ import Test.QuickCheck
 formulaProperties = zipProperties [ ("Negation", negationProperty)
                                   , ("Disjunction", disjunctionProperty)
                                   , ("Conjuction", conjunctionProperty)
-                                  , ("Transitions", transitionProperty)
+                                  , ("Actions", actionProperty)
                                   , ("Fixpoints", fixpointProperty)
                                   ]
 
@@ -50,16 +50,16 @@ conjunctionProperty = forAllModels (\(model, _) ->
                               intersectionSet `subset` psiSet .&&.
                               setAnd phiSet psiSet `subset` intersectionSet)))))
 
-modelHasATransition = not . M.null . transitions
-transitionProperty = forAllModelsSuchThat modelHasATransition (\(model, _) ->
+modelHasAnAction = not . M.null . actions
+actionProperty = forAllModelsSuchThat modelHasAnAction (\(model, _) ->
                      forAll (formulas model) (\phi ->
-                       let kv = M.findMin $ transitions model
+                       let kv = M.findMin $ actions model
                            k = fst kv
                            tr = snd kv
                            phiPullback = PossiblyNext k phi
                         in extract (realize phi model) (\phiSet ->
                            extract (realize phiPullback model) (\phiPullbackSet ->
-                             property $ phiPullbackSet == phiSet `throughTransition` tr))))
+                             property $ phiPullbackSet == phiSet `throughAction` tr))))
 
 muAtTopLevel (Mu _ _) = True
 muAtTopLevel _  = False

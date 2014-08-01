@@ -7,7 +7,7 @@ import MuCalc.States
 import MuCalc.Realization
 import MuCalc.MuModel
 import Test.QuickCheck
-import Test.HUnit hiding (State, Test)
+import Test.HUnit hiding (Test)
 import Test.Framework.Providers.QuickCheck2
 import Test.Framework.Providers.HUnit
 import Test.Framework
@@ -23,7 +23,7 @@ extract :: Realization -> (StateSet -> Property) -> Property
 extract (Left e) = error $ show e --ignore the given property computation
 extract (Right set) = ($set) --apply the given computation to the set
 
-assertRealization :: Realization -> (S.Set State -> Assertion) -> Assertion
+assertRealization :: Realization -> (S.Set PState -> Assertion) -> Assertion
 assertRealization (Left error) = const (assert False)
 assertRealization (Right set) = let s = states (toExplicit set)
                                  in ($s)

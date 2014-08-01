@@ -48,10 +48,10 @@ negativeVariableParityTest = let fs = [ Negation (Variable "A")
                                  realizations = map (\f -> realizeAux f aContext aModel) fs
                               in assert (all isLeft realizations)
 
--- Tests for transition realization --
+-- Tests for action realization --
 
 --Either set exactly one element true, or change nothing.
-setOneTrue :: State -> [State]
+setOneTrue :: PState -> [PState]
 setOneTrue s = let n = length s
                    f i = [setNthElement s i True | not (s !! i)]
                    list = concatMap f [0..n-1]
@@ -66,7 +66,7 @@ s2Test = setOneTrue [True, True] @?= [[True, True]]
 s3Test = setOneTrue [False, False] @?= [[False, False], [True, False], [False, True]]
 
 n = 3
-m = (newMuModel n) `withTransitions` (M.singleton "setOneTrue" (Transition setOneTrue))
+m = (newMuModel n) `withActions` (M.singleton "setOneTrue" (Action setOneTrue))
                    `withPropositions` M.fromList [ ("1", Proposition ((!!1)))
                                                  , ("2", Proposition ((!!2)))
                                                  , ("3", Proposition ((!!3)))
@@ -103,7 +103,7 @@ exactlyTwoTrueTest = assertRealization (realize exactlyTwoTrue m) (\set ->
 allTrueTest = assertRealization (realize allTrue m) (\set ->
                 set @?= S.fromList [[True, True, True]])
 
---Test the reachability of the states through the transition
+--Test the reachability of the states through the action
 allFalseReachableTest = let phi = PossiblyNext "setOneTrue" allFalse
                            in assertRealization (realize phi m) (\set ->
                                 set @?= S.fromList [[False, False, False]])
@@ -137,7 +137,7 @@ simpleAndFixpointTest = let phi = Mu "A" (And (exactlyOneTrue) (Variable "A"))
 unboundVariableCheck = let phi = Mu "A" (And (exactlyOneTrue) (Variable "B"))
                         in (realize phi m) @?= Left UnknownVariableError
 
---These tests rely on the fact that the setOneTrue transition only allows you to move
+--These tests rely on the fact that the setOneTrue action only allows you to move
 --up the lattice, so that exactlyOneTrue is not reachable from exactlyTwoTrue, and
 --exactlyTwoTrue is not reachable from allTrue.
 exactlyTwoTrueFixpointTest = let phi = Mu "A" (Or (exactlyTwoTrue)
