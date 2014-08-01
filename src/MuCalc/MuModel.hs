@@ -3,7 +3,6 @@ module MuCalc.MuModel where
 import Prelude hiding (lookup)
 import OBDD hiding ((&&), not)
 import qualified Data.Map as M
-import MuCalc.MuFormula
 import MuCalc.States hiding (dimension)
 import Control.Exception
 

@@ -2,7 +2,7 @@ module MuCalc.Utils where
 
 import Data.Either (either)
 import qualified Data.Set as S
-import MuCalc.MuFormula
+import MuCalc.MuFormula hiding (iff, implies)
 import MuCalc.States
 import MuCalc.Realization
 import MuCalc.MuModel

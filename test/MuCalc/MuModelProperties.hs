@@ -3,7 +3,7 @@ module MuCalc.MuModelProperties (formulaProperties) where
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Control.Applicative
-import MuCalc.MuFormula
+import MuCalc.MuFormula hiding (iff, implies)
 import MuCalc.States
 import MuCalc.MuModel
 import MuCalc.Realization
