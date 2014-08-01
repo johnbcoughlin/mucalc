@@ -47,9 +47,9 @@ posToState (x, y) = if not (isInBounds (x, y))
                     else [x >= 2, x `mod` 2 == 1, y >= 2, y `mod` 2 == 1]
 
 stateToPos :: State -> Position
-stateToPos state = if not (length state == 4)
+stateToPos state = if length state /= 4
                    then error ("Wrong size state: " ++ show state)
-                   else let x = (2 * if (state !! 0) then 1 else 0) + (if (state !! 1) then 1 else 0)
+                   else let x = (2 * if (head state) then 1 else 0) + (if (state !! 1) then 1 else 0)
                             y = (2 * if (state !! 2) then 1 else 0) + (if (state !! 3) then 1 else 0)
                          in (x, y)
 
@@ -60,7 +60,7 @@ translateTransition :: (Position -> [Position]) -> Transition
 translateTransition f = Transition $ (map posToState) . f . stateToPos
 
 --Check that we're converting back and forth correctly
-posStateProperty = forAll (positions) $ (\pos ->
+posStateProperty = forAll (positions) (\pos ->
                      (stateToPos . posToState $ pos) == pos)
 
 {-
@@ -81,7 +81,7 @@ isClear :: Position -> Bool
 isClear (x, y) = x /= y
 
 --Check that we're only moving to legal squares
-legalMovesProperty = forAll (positions) $ (\pos ->
+legalMovesProperty = forAll (positions) (\pos ->
                        let results = move pos
                         in all (\res -> isInBounds res && isClear res) results)
 
@@ -126,8 +126,7 @@ success = Mu "Z" (Or winningCondition
 phi = initialCondition `And` success
 
 --The game phi is not winnable.
-losingGameTest = assertRealization (realize phi model) (\set ->
-                   set @?= S.empty)
+losingGameTest = assertRealization (realize phi model) (@?= S.empty)
 
 --If we relax the constraint that we start at I, but require that we're not on an impassable square,
 --there should be six winning positions

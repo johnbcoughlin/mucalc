@@ -31,31 +31,31 @@ pairsOf :: Gen a -> Gen (a, a)
 pairsOf g = pure (,) <*> g <*> g
 
 --If prop doesn't need to know about the dimension
-forAllStates prop = forAll dimensions $ (\n ->
-                    forAll (dimNStates n) $ prop)
+forAllStates prop = forAll dimensions (\n ->
+                    forAll (dimNStates n) prop)
 
 type ModelTriple = (MuModel, Gen State)
 forAllModels :: (ModelTriple -> Property) -> Property
 forAllModels = forAllModelsSuchThat $ const True
 
 forAllModelsSuchThat :: (MuModel -> Bool) -> (ModelTriple -> Property) -> Property
-forAllModelsSuchThat test prop = forAll dimensions $ (\n ->
-                                 forAll (models n `suchThat` test) $ (\model ->
+forAllModelsSuchThat test prop = forAll dimensions (\n ->
+                                 forAll (models n `suchThat` test)  (\model ->
                                    let stateGen = dimNStates n
                                     in prop (model, stateGen)))
 
 
 models :: Int -> Gen MuModel
 models n = let base = (newMuModel n) `withPropositions` (Proposition `fmap` eqPropositions n)
-               transitionLists = listOf $ (Transition `fmap` iffTransitions n)
+               transitionLists = listOf (Transition `fmap` iffTransitions n)
             in (\trList -> let count = length trList
-                               itoa = (\i -> "Tr:" ++ [chr (i + 65)])
+                               itoa i = "Tr:" ++ [chr (i + 65)]
                                trNames = map itoa [0..count]
                                trMap = M.fromList $ zip trNames trList
                             in base `withTransitions` trMap) <$> transitionLists
 
 --A map of named propositions, each of which checks the value of a state at the given index.
-eqPropositions n = let forIndex = (\i -> (!!i))
+eqPropositions n = let forIndex i = (!!i)
                        singletons = map (\i -> M.singleton (show i) (forIndex i)) [0..n-1]
                     in M.unions singletons
 
@@ -67,7 +67,7 @@ mapMasks :: Int -> [State] -> State -> [State]
 mapMasks n masks state = map (zipWith (&&) state) (state : masks)
 
 iffTransitions :: Int -> Gen (State -> [State])
-iffTransitions n = ((mapMasks n) `fmap` (listOf $ iffMaskGen n))
+iffTransitions n = ((mapMasks n) `fmap` listOf (iffMaskGen n))
 
 instance Show (State -> [State]) where
   show f = "tough luck"
@@ -93,9 +93,8 @@ cf c k = M.findWithDefault 0 k . freqs $ c
 
 --We reduce branching every time it happens to ensure that the generator terminates in a timely fashion.
 --"Branching" also includes linear operators like negation and transition.
-reduceBranching context = let dec = (\i -> if i == 0 then 0 else i - 1)
-                              newFreqs = foldr (\k ->
-                                               (\m -> M.adjust dec k m)) (freqs context) [Disj, Conj, Neg, Fixp, Var, Trans]
+reduceBranching context = let dec i = if i == 0 then 0 else i - 1
+                              newFreqs = foldr (M.adjust dec) (freqs context) [Disj, Conj, Neg, Fixp, Var, Trans]
                            in (context {freqs = newFreqs})
 
 allFormulas :: FormulaGenContext -> Gen MuFormula
@@ -165,5 +164,5 @@ fixpointOperators c = let used = usedVars c
 --Convenient properties--
 
 subsetN :: Int -> StateSet -> StateSet -> Property
-subsetN n p q = forAll (dimNStates n) $ (\state ->
+subsetN n p q = forAll (dimNStates n) (\state ->
                   p `contains` state ==> q `contains` state)

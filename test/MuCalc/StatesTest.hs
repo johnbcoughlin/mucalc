@@ -19,42 +19,41 @@ testList = [ testProperty "empty bottom" emptyBottom
            , testCase "map to state list" mapToStateListTest
            ]
 
-emptyBottom = forAll dimensions $ (\n ->
-              forAll (dimNStates n) $ (not . (newBottom n `contains`)))
+emptyBottom = forAll dimensions (\n ->
+              forAll (dimNStates n) (not . (newBottom n `contains`)))
 
-fullTop = forAll dimensions $ (\n ->
-          forAll (dimNStates n) $ (newTop n `contains`))
+fullTop = forAll dimensions (\n ->
+          forAll (dimNStates n) (newTop n `contains`))
 
-singletonProp = forAllStates $ (\state -> (singleton state) `contains` state)
+singletonProp = forAllStates (\state -> (singleton state) `contains` state)
 
-fromExplicitProperty = forAll dimensions $ (\n ->
-                       forAll (listOf (dimNStates n)) $ (\states ->
+fromExplicitProperty = forAll dimensions (\n ->
+                       forAll (listOf (dimNStates n)) (\states ->
                          let stateSet = fromExplicit (Explicit (S.fromList states) n)
                           in all (stateSet `contains`) states))
 
-explicitBijectionProperty = forAll dimensions $ (\n ->
-                            forAll (listOf (dimNStates n)) $ (\list ->
+explicitBijectionProperty = forAll dimensions (\n ->
+                            forAll (listOf (dimNStates n)) (\list ->
                               let explicit = (Explicit (S.fromList list) n)
                                in explicit == toExplicit (fromExplicit explicit)))
 
 --Expect the [output, input] pair of n-vector tuples
-transitionProperty = forAll dimensions $ (\n ->
-                     forAll (iffTransitions n) $ (\f ->
-                     forAll (dimNStates n) $ (\state ->
+transitionProperty = forAll dimensions (\n ->
+                     forAll (iffTransitions n) (\f ->
+                     forAll (dimNStates n) (\state ->
                        let transition = fanoutToPhysicalTransition n f
                            expected = map (++state) (f state)
                         --Verify that the transition set contains every expected value.
                         in all (transition `contains`) expected)))
 
 --Check that the transition pullback function pulls back to states from which we can reach the goal image.
-transitionPullbackProperty = forAll dimensions $ (\n ->
-                             forAll (iffTransitions n) $ (\f ->
-                             forAll (listOf (dimNStates n)) $ (\stateList ->
+transitionPullbackProperty = forAll dimensions (\n ->
+                             forAll (iffTransitions n) (\f ->
+                             forAll (listOf (dimNStates n)) (\stateList ->
                                let transition = fanoutToPhysicalTransition n f
                                    image = fromExplicit (Explicit (S.fromList stateList) n)
                                    preImage = S.elems . states . toExplicit $ throughTransition image transition
-                                   hasAnyFResultsInImage = (\preImageState ->
-                                                           any (image `contains`) (f $ preImageState))
+                                   hasAnyFResultsInImage preImageState = any (image `contains`) (f preImageState)
                                 in all hasAnyFResultsInImage preImage)))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.

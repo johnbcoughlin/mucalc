@@ -53,9 +53,7 @@ negativeVariableParityTest = let fs = [ Negation (Variable "A")
 --Either set exactly one element true, or change nothing.
 setOneTrue :: State -> [State]
 setOneTrue s = let n = length s
-                   f = \i -> if not (s !! i)
-                             then [setNthElement s i True]
-                             else []
+                   f i = [setNthElement s i True | not (s !! i)]
                    list = concatMap f [0..n-1]
                 in s:list
 
@@ -96,22 +94,22 @@ testFormulaTests = zipTestCases [ ("All false", allFalseTest)
                                 , ("All true", allTrueTest)
                                 ]
 
-allFalseTest = assertRealization (realize allFalse m) $ (\set ->
+allFalseTest = assertRealization (realize allFalse m) (\set ->
                  set @?= S.fromList [[False, False, False]])
-exactlyOneTrueTest = assertRealization (realize exactlyOneTrue m) $ (\set ->
+exactlyOneTrueTest = assertRealization (realize exactlyOneTrue m) (\set ->
                        set @?= S.fromList exactlyOneTrueList)
-exactlyTwoTrueTest = assertRealization (realize exactlyTwoTrue m) $ (\set ->
+exactlyTwoTrueTest = assertRealization (realize exactlyTwoTrue m) (\set ->
                        set @?= S.fromList exactlyTwoTrueList)
-allTrueTest = assertRealization (realize allTrue m) $ (\set ->
+allTrueTest = assertRealization (realize allTrue m) (\set ->
                 set @?= S.fromList [[True, True, True]])
 
 --Test the reachability of the states through the transition
 allFalseReachableTest = let phi = PossiblyNext "setOneTrue" allFalse
-                           in assertRealization (realize phi m) $ (\set ->
+                           in assertRealization (realize phi m) (\set ->
                                 set @?= S.fromList [[False, False, False]])
 
 exactlyOneTrueReachableTest = let phi = PossiblyNext "setOneTrue" exactlyOneTrue
-                               in assertRealization (realize phi m) $ (\set ->
+                               in assertRealization (realize phi m) (\set ->
                                     set @?= S.fromList ([False, False, False] : exactlyOneTrueList))
 
 muTestCases = zipTestCases [ ("Least fixpoint of constant", constantFixpointTest)
@@ -124,16 +122,16 @@ muTestCases = zipTestCases [ ("Least fixpoint of constant", constantFixpointTest
 
 --The least fixpoint of a constant function should be the constant
 constantFixpointTest = let phi = Mu "A" exactlyOneTrue
-                        in assertRealization (realize phi m) $ (\set ->
+                        in assertRealization (realize phi m) (\set ->
                              set @?= S.fromList exactlyOneTrueList)
 
 --The least fixpoint of \Z -> Z || phi should be phi
 simpleOrFixpointTest = let phi = Mu "A" (Or (exactlyOneTrue) (Variable "A"))
-                        in assertRealization (realize phi m) $ (\set ->
+                        in assertRealization (realize phi m) (\set ->
                              set @?= S.fromList exactlyOneTrueList)
 
 simpleAndFixpointTest = let phi = Mu "A" (And (exactlyOneTrue) (Variable "A"))
-                         in assertRealization (realize phi m) $ (\set ->
+                         in assertRealization (realize phi m) (\set ->
                               set @?= S.fromList [])
 
 unboundVariableCheck = let phi = Mu "A" (And (exactlyOneTrue) (Variable "B"))
@@ -145,14 +143,14 @@ unboundVariableCheck = let phi = Mu "A" (And (exactlyOneTrue) (Variable "B"))
 exactlyTwoTrueFixpointTest = let phi = Mu "A" (Or (exactlyTwoTrue)
                                                   (PossiblyNext "setOneTrue" (Variable "A")))
                                  notAllTrue = Negation allTrue
-                              in assertRealization (realize phi m) $ (\set ->
-                                 assertRealization (realize notAllTrue m) $ (\expected ->
+                              in assertRealization (realize phi m) (\set ->
+                                 assertRealization (realize notAllTrue m) (\expected ->
                                    set @?= expected))
 
 exactlyOneTrueFixpointTest = let phi = Mu "A" (Or (exactlyOneTrue)
                                                   (PossiblyNext "setOneTrue" (Variable "A")))
                                  atMostOneTrue = Negation (Or allTrue exactlyTwoTrue)
-                              in assertRealization (realize phi m) $ (\set ->
-                                 assertRealization (realize atMostOneTrue m) $ (\expected ->
+                              in assertRealization (realize phi m) (\set ->
+                                 assertRealization (realize atMostOneTrue m) (\expected ->
                                    set @?= expected))
 

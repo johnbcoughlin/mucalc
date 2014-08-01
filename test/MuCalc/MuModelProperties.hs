@@ -24,14 +24,14 @@ formulaProperties = zipProperties [ ("Negation", negationProperty)
                                   ]
 
 --Need to use forAllFormulasWithNoVariables
-negationProperty = forAllModels $ (\(model, _) ->
-                   forAll (negatableFormulas model) $ (\phi ->
+negationProperty = forAllModels (\(model, _) ->
+                   forAll (negatableFormulas model) (\phi ->
                      extract (realize phi model) (\phiSet ->
                      extract (realize (Negation phi) model) (\notPhiSet ->
                        property $ notPhiSet == setNot phiSet))))
 
-disjunctionProperty = forAllModels $ (\(model, _) ->
-                      forAll (pairsOf (formulas model)) $ (\(phi, psi) ->
+disjunctionProperty = forAllModels (\(model, _) ->
+                      forAll (pairsOf (formulas model)) (\(phi, psi) ->
                         extract (realize phi model) (\phiSet ->
                         extract (realize psi model) (\psiSet ->
                         extract (realize (Or phi psi) model) (\unionSet ->
@@ -40,8 +40,8 @@ disjunctionProperty = forAllModels $ (\(model, _) ->
                               psiSet `subset` unionSet .&&.
                               unionSet `subset` setOr phiSet psiSet)))))
 
-conjunctionProperty = forAllModels $ (\(model, _) ->
-                      forAll (pairsOf (formulas model)) $ (\(phi, psi) ->
+conjunctionProperty = forAllModels (\(model, _) ->
+                      forAll (pairsOf (formulas model)) (\(phi, psi) ->
                         extract (realize phi model) (\phiSet ->
                         extract (realize psi model) (\psiSet ->
                         extract (realize (And phi psi) model) (\intersectionSet ->
@@ -51,8 +51,8 @@ conjunctionProperty = forAllModels $ (\(model, _) ->
                               setAnd phiSet psiSet `subset` intersectionSet)))))
 
 modelHasATransition = not . M.null . transitions
-transitionProperty = forAllModelsSuchThat modelHasATransition $ (\(model, _) ->
-                     forAll (formulas model) $ (\phi ->
+transitionProperty = forAllModelsSuchThat modelHasATransition (\(model, _) ->
+                     forAll (formulas model) (\phi ->
                        let kv = M.findMin $ transitions model
                            k = fst kv
                            tr = snd kv
@@ -63,11 +63,10 @@ transitionProperty = forAllModelsSuchThat modelHasATransition $ (\(model, _) ->
 
 muAtTopLevel (Mu _ _) = True
 muAtTopLevel _  = False
-fixpointProperty = forAllModels $ (\(model, _) ->
-                   forAll ((formulas model) `suchThat` muAtTopLevel) $ (\phi ->
-                     fixpointPropertyAux phi model))
+fixpointProperty = forAllModels (\(model, _) ->
+                   forAll ((formulas model) `suchThat` muAtTopLevel) (`fixpointPropertyAux` model))
 
-fixpointPropertyAux (Mu var phi) model = extract (realize (Mu var phi) model) $ (\fixpoint ->
-                                       let context = Context True (M.singleton var fixpoint)
-                                        in extract (realizeAux phi context model) $(\expected ->
-                                          property $ fixpoint == expected))
+fixpointPropertyAux (Mu var phi) model = extract (realize (Mu var phi) model) (\fixpoint ->
+                                           let context = Context True (M.singleton var fixpoint)
+                                            in extract (realizeAux phi context model) $(\expected ->
+                                              property $ fixpoint == expected))
