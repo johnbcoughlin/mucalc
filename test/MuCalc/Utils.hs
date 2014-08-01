@@ -4,6 +4,7 @@ import Data.Either (either)
 import qualified Data.Set as S
 import MuCalc.MuFormula
 import MuCalc.States
+import MuCalc.Realization
 import MuCalc.MuModel
 import Test.QuickCheck
 import Test.HUnit hiding (State, Test)
@@ -24,8 +25,8 @@ extract (Right set) = ($set) --apply the given computation to the set
 
 assertRealization :: Realization -> (S.Set State -> Assertion) -> Assertion
 assertRealization (Left error) = const (assert False)
-assertRealization (Right s) = let set = states (toExplicit s)
-                               in ($set)
+assertRealization (Right set) = let s = states (toExplicit set)
+                                 in ($s)
 
 setNthElement :: [a] -> Int -> a -> [a]
 setNthElement xs i val = fnt ++ val : bck
