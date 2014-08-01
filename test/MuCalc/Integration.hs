@@ -53,6 +53,12 @@ stateToPos state = if not (length state == 4)
                             y = (2 * if (state !! 2) then 1 else 0) + (if (state !! 3) then 1 else 0)
                          in (x, y)
 
+translateProposition :: (Position -> Bool) -> Proposition
+translateProposition pred = Proposition $ pred . stateToPos
+
+translateTransition :: (Position -> [Position]) -> Transition
+translateTransition f = Transition $ (map posToState) . f . stateToPos
+
 --Check that we're converting back and forth correctly
 posStateProperty = forAll (positions) $ (\pos ->
                      (stateToPos . posToState $ pos) == pos)
@@ -79,12 +85,6 @@ legalMovesProperty = forAll (positions) $ (\pos ->
                        let results = move pos
                         in all (\res -> isInBounds res && isClear res) results)
 
---The transition itself.
-moveTransition :: Transition
-moveTransition = let f = S.fromList . (map posToState) . move . stateToPos
-                     fToExplicit = (\set -> Explicit set dim) . f
-                  in fromFunction dim fToExplicit
-
 {-
 - Construct the model. It looks like this:
 - +----+
@@ -95,26 +95,28 @@ moveTransition = let f = S.fromList . (map posToState) . move . stateToPos
 - +----+
 - the X's are impassable, the W is the winning square, and the I is the starting square.
 -}
-model = (newMuModel dim) { transitions = M.singleton "move" moveTransition }
+isInitial (0, 3) = True
+isInitial _ = False
+isWinning (3, 0) = True
+isWinning _ = False
+isPassable (x, y) = x /= y
+model = (newMuModel dim) `withTransitions` (M.singleton "move" (translateTransition move))
+                         `withPropositions` M.map translateProposition (M.fromList [ ("initial", isInitial)
+                                                                                   , ("winning", isWinning)
+                                                                                   , ("passable", isPassable)
+                                                                                   ])
 
 --The robot should start in the bottom left: pos = (0, 3), or [False, False, True, True]
-initialCondition = And (And (Negation (Proposition 0))
-                            (Negation (Proposition 1)))
-                       (And (Proposition 2)
-                            (Proposition 3))
+initialCondition = Atom "initial"
 initialConditionTest = assertRealization (realize initialCondition model) (\set ->
                          set @?= S.fromList [posToState (0, 3)])
 
 --The robot should end up in the top right: pos = (3, 0), or [True, True, False, False]
-winningCondition = And (And (Proposition 0)
-                            (Proposition 1))
-                       (And (Negation (Proposition 2))
-                            (Negation (Proposition 3)))
+winningCondition = Atom "winning"
 winningConditionTest = assertRealization (realize winningCondition model) (\set ->
                          set @?= S.fromList [posToState (3, 0)])
 
-clearSquare = Negation (And ((Proposition 0) `iff` (Proposition 2))
-                            ((Proposition 1) `iff` (Proposition 3)))
+clearSquare = Atom "passable"
 
 --Eventually get to the winning condition
 success = Mu "Z" (Or winningCondition

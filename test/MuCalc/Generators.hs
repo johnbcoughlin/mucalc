@@ -46,39 +46,44 @@ forAllModelsSuchThat test prop = forAll dimensions $ (\n ->
 
 
 models :: Int -> Gen MuModel
-models n = let base = newMuModel n
-               transitionLists = listOf $ (fromFunction n <$> iffTransitions n) -- :: Gen [Transition]
+models n = let base = (newMuModel n) `withPropositions` (Proposition `fmap` eqPropositions n)
+               transitionLists = listOf $ (Transition `fmap` iffTransitions n)
             in (\trList -> let count = length trList
                                itoa = (\i -> "Tr:" ++ [chr (i + 65)])
                                trNames = map itoa [0..count]
                                trMap = M.fromList $ zip trNames trList
-                            in base { transitions=trMap }) <$> transitionLists
+                            in base `withTransitions` trMap) <$> transitionLists
+
+--A map of named propositions, each of which checks the value of a state at the given index.
+eqPropositions n = let forIndex = (\i -> (!!i))
+                       singletons = map (\i -> M.singleton (show i) (forIndex i)) [0..n-1]
+                    in M.unions singletons
 
 --Generates transition functions which IFF a state with a list of bit masks,
 --plus the current state.
 iffMaskGen = dimNStates
 
-mapMasks :: Int -> [State] -> State -> ExplicitStateSet
-mapMasks n masks state = Explicit (S.fromList (map (zipWith (&&) state)
-                                                   (state : masks))) n
+mapMasks :: Int -> [State] -> State -> [State]
+mapMasks n masks state = map (zipWith (&&) state) (state : masks)
 
-iffTransitions :: Int -> Gen (State -> ExplicitStateSet)
-iffTransitions n = (mapMasks n) `fmap` (listOf $ iffMaskGen n)
+iffTransitions :: Int -> Gen (State -> [State])
+iffTransitions n = ((mapMasks n) `fmap` (listOf $ iffMaskGen n))
 
-instance Show (State -> ExplicitStateSet) where
+instance Show (State -> [State]) where
   show f = "tough luck"
 
 --Generators for MuFormulas. Each generator uses a FormulaGenContext to govern dispatch.
 
 baseContext :: MuModel -> FormulaGenContext
-baseContext m = FormulaGenContext (dimension m) True (M.keys (transitions m)) [] [] M.empty
+baseContext m = FormulaGenContext (dimension m) True (M.keys (props m)) (M.keys (transitions m)) [] [] M.empty
 
 data FormulaGenBranch = Prop | Var | Neg | Conj | Disj | Trans | Fixp
                       deriving (Eq, Show, Ord)
 
 data FormulaGenContext = FormulaGenContext { dim :: Int
                                            , prty :: Bool
-                                           , trs :: [TransitionLabel]
+                                           , pLabels :: [PropositionLabel]
+                                           , trLabels :: [TransitionLabel]
                                            , vars :: [String]
                                            , usedVars :: [String]
                                            , freqs :: M.Map FormulaGenBranch Int
@@ -94,7 +99,7 @@ reduceBranching context = let dec = (\i -> if i == 0 then 0 else i - 1)
                            in (context {freqs = newFreqs})
 
 allFormulas :: FormulaGenContext -> Gen MuFormula
-allFormulas c = frequency [ (cf c Prop, propositions c)
+allFormulas c = frequency [ (cf c Prop, atoms c)
                           , (cf c Var, if prty c
                                   then (if length (vars c) == 1
                                         then variables c
@@ -103,7 +108,7 @@ allFormulas c = frequency [ (cf c Prop, propositions c)
                        , (cf c Neg, negations c)
                        , (cf c Disj, disjunctions c)
                        , (cf c Conj, conjunctions c)
-                       , (cf c Trans, if not (null (trs c))
+                       , (cf c Trans, if not (null (trLabels c))
                                     then possiblyNexts c
                                     else conjunctions c)
                        , (cf c Fixp, fixpointOperators c)
@@ -119,8 +124,7 @@ negatableFormulas model = let cfs = M.fromList [(Prop, 3), (Disj, 2), (Conj, 2),
                               c = baseContext model
                            in allFormulas (c {freqs = cfs})
 
-propositions c = let n = dim c
-                  in Proposition <$> elements [0..n-1]
+atoms c = Atom <$> elements (pLabels c)
 
 negations c = let p = prty c
                   newContext = (reduceBranching c) {prty = not p}
@@ -146,7 +150,7 @@ conjunctions context = let v = vars context
 variables c = pure Variable <*> elements (vars c)
 
 --Pick a transition label at random from the list of known transitions
-possiblyNexts c = pure PossiblyNext <*> elements (trs c) <*> allFormulas c
+possiblyNexts c = pure PossiblyNext <*> elements (trLabels c) <*> allFormulas c
 
 fixpointOperators c = let used = usedVars c
                           i = if null used

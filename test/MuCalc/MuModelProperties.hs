@@ -16,23 +16,12 @@ import Test.Framework.Providers.HUnit
 import Test.Framework.Providers.QuickCheck2
 import Test.QuickCheck
 
-formulaProperties = zipProperties [ ("Proposition", propositionProperty)
-                                  , ("Negation", negationProperty)
+formulaProperties = zipProperties [ ("Negation", negationProperty)
                                   , ("Disjunction", disjunctionProperty)
                                   , ("Conjuction", conjunctionProperty)
                                   , ("Transitions", transitionProperty)
                                   , ("Fixpoints", fixpointProperty)
                                   ]
-
-propositionProperty = forAll dimensions $ (\n ->
-                      forAll (models n) $ (\model ->
-                      forAll (dimNStates n) $ (\state ->
-                      forAll (elements [0..n-1]) $ (\i ->
-                      forAll (elements [True, False]) $ (\bool ->
-                        let phi = Proposition i
-                         in extract (realize phi model) (\set ->
-                              whenFail' (putStrLn $ show set)
-                                        ((set `contains` (setNthElement state i bool) `iff` bool))))))))
 
 --Need to use forAllFormulasWithNoVariables
 negationProperty = forAllModels $ (\(model, _) ->

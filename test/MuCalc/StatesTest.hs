@@ -1,7 +1,7 @@
 module MuCalc.StatesTest (testList) where
 
 import qualified Data.Set as S
-import Data.Map hiding (singleton, notMember, elems)
+import qualified Data.Map as M
 import MuCalc.States
 import MuCalc.Generators
 import Test.HUnit hiding (State)
@@ -41,24 +41,24 @@ explicitBijectionProperty = forAll dimensions $ (\n ->
 transitionProperty = forAll dimensions $ (\n ->
                      forAll (iffTransitions n) $ (\f ->
                      forAll (dimNStates n) $ (\state ->
-                       let transition = fromFunction n f
-                           expected = S.map (++state) (states $ f state)
+                       let transition = fanoutToPhysicalTransition n f
+                           expected = map (++state) (f state)
                         --Verify that the transition set contains every expected value.
-                        in S.notMember False (S.map (transition `contains`) expected))))
+                        in all (transition `contains`) expected)))
 
 --Check that the transition pullback function pulls back to states from which we can reach the goal image.
 transitionPullbackProperty = forAll dimensions $ (\n ->
                              forAll (iffTransitions n) $ (\f ->
                              forAll (listOf (dimNStates n)) $ (\stateList ->
-                               let transition = fromFunction n f
+                               let transition = fanoutToPhysicalTransition n f
                                    image = fromExplicit (Explicit (S.fromList stateList) n)
                                    preImage = S.elems . states . toExplicit $ throughTransition image transition
                                    hasAnyFResultsInImage = (\preImageState ->
-                                                           any (image `contains`) (S.elems . states . f $ preImageState))
+                                                           any (image `contains`) (f $ preImageState))
                                 in all hasAnyFResultsInImage preImage)))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.
-mapToStateListTest = let hash = Data.Map.fromList [(4, True), (6, False)]
+mapToStateListTest = let hash = M.fromList [(4, True), (6, False)]
                          expected = [ [True, True, False, True]
                                     , [True, True, False, False]
                                     , [True, False, False, True]

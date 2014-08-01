@@ -27,20 +27,22 @@ testList = [ testGroup "Variable parity" variableParityTests
            ]
 
 aContext = Context True (M.singleton "A" (newBottom 2))
-aModel = newMuModel 2
+aModel = (newMuModel 2) `withPropositions` M.fromList [ ("1", Proposition ((!!1)))
+                                                      , ("2", Proposition ((!!2)))
+                                                      ]
 
 variableParityTests = zipTestCases [ ("Positive", positiveVariableParityTest)
                                    , ("Negative", negativeVariableParityTest)
                                    ]
-positiveVariableParityTest = let f = Or (Proposition 0)
+positiveVariableParityTest = let f = Or (Atom "0")
                                         (Negation (And (Negation (Variable "A"))
-                                                       (Proposition 1)))
+                                                       (Atom "1")))
                                  realization = realizeAux f aContext aModel
                               in assert (isRight realization)
 
 negativeVariableParityTest = let fs = [ Negation (Variable "A")
                                       , Negation (Negation (Negation (Variable "A")))
-                                      , Or (Proposition 0)
+                                      , Or (Atom "0")
                                            (Negation (Variable "A"))
                                       ]
                                  realizations = map (\f -> realizeAux f aContext aModel) fs
@@ -48,42 +50,44 @@ negativeVariableParityTest = let fs = [ Negation (Variable "A")
 
 -- Tests for transition realization --
 
-setOneTrue :: State -> S.Set State
+--Either set exactly one element true, or change nothing.
+setOneTrue :: State -> [State]
 setOneTrue s = let n = length s
                    f = \i -> if not (s !! i)
                              then [setNthElement s i True]
                              else []
                    list = concatMap f [0..n-1]
-                in S.fromList (s:list)
+                in s:list
 
 setOneTrueTests = zipTestCases [ ("true-false", s1Test)
                                , ("true-true", s2Test)
                                , ("false-false", s3Test)
                                ]
-s1Test = setOneTrue [True, False] @?= S.fromList [[True, False], [True, True]]
-s2Test = setOneTrue [True, True] @?= S.fromList [[True, True]]
-s3Test = setOneTrue [False, False] @?= S.fromList [[False, False], [True, False], [False, True]]
-
-explicitOfN :: Int -> S.Set State -> ExplicitStateSet
-explicitOfN n set = Explicit set n
+s1Test = setOneTrue [True, False] @?= [[True, False], [True, True]]
+s2Test = setOneTrue [True, True] @?= [[True, True]]
+s3Test = setOneTrue [False, False] @?= [[False, False], [True, False], [False, True]]
 
 n = 3
-setOneTrueTransition = fromFunction n ((explicitOfN n) . setOneTrue)
-m = (newMuModel n) { transitions = M.fromList [("setOneTrue", setOneTrueTransition)] }
-allFalse = And (Negation (Proposition 0))
-          (And (Negation (Proposition 1))
-               (Negation (Proposition 2)))
-exactlyOneTrue = Or (And (Proposition 0) (And (Negation (Proposition 1)) (Negation (Proposition 2))))
-                (Or (And (Proposition 1) (And (Negation (Proposition 0)) (Negation (Proposition 2))))
-                    (And (Proposition 2) (And (Negation (Proposition 0)) (Negation (Proposition 1)))))
+m = (newMuModel n) `withTransitions` (M.singleton "setOneTrue" (Transition setOneTrue))
+                   `withPropositions` M.fromList [ ("1", Proposition ((!!1)))
+                                                 , ("2", Proposition ((!!2)))
+                                                 , ("3", Proposition ((!!3)))
+                                                 ]
+
+allFalse = And (Negation (Atom "0"))
+          (And (Negation (Atom "1"))
+               (Negation (Atom "2")))
+exactlyOneTrue = Or (And (Atom "0") (And (Negation (Atom "1")) (Negation (Atom "2"))))
+                (Or (And (Atom "1") (And (Negation (Atom "0")) (Negation (Atom "2"))))
+                    (And (Atom "2") (And (Negation (Atom "0")) (Negation (Atom "1")))))
 exactlyOneTrueList = [[True, False, False] , [False, True, False] , [False, False, True]]
-exactlyTwoTrue = Or (And (Proposition 0) (And (Proposition 1) (Negation (Proposition 2))))
-                (Or (And (Proposition 1) (And (Proposition 2) (Negation (Proposition 0))))
-                    (And (Proposition 2) (And (Proposition 0) (Negation (Proposition 1)))))
+exactlyTwoTrue = Or (And (Atom "0") (And (Atom "1") (Negation (Atom "2"))))
+                (Or (And (Atom "1") (And (Atom "2") (Negation (Atom "0"))))
+                    (And (Atom "2") (And (Atom "0") (Negation (Atom "1")))))
 exactlyTwoTrueList = [[True, True, False] , [True, False, True] , [False, True, True]]
-allTrue = And (Proposition 0)
-         (And (Proposition 1)
-              (Proposition 2))
+allTrue = And (Atom "0")
+         (And (Atom "1")
+              (Atom "2"))
 
 --Test that we've written these formulas correctly
 testFormulaTests = zipTestCases [ ("All false", allFalseTest)

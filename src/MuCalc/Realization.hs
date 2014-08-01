@@ -8,19 +8,23 @@ import MuCalc.MuModel
 import MuCalc.States hiding (dimension)
 import Control.Exception
 
-data RealizationError = VariableParityError | PropositionIndexError |
+data RealizationError = VariableParityError | UnknownPropositionError |
                         InvalidTransitionError | AlreadyBoundVariableError |
                         UnknownVariableError
     deriving (Eq, Show)
 
 type Realization = Either RealizationError StateSet
 
+data Context = Context { parity :: Bool
+                       , env :: (M.Map String StateSet)
+                       }
+
 --Construct the set of states of this model which satisfy the given formula.
 realize :: MuFormula -> MuModel -> Realization
 realize phi = realizeAux phi (Context {parity=True, env=M.empty})
 
 realizeAux :: MuFormula -> Context -> MuModel -> Realization
-realizeAux (Proposition n) = realizeProposition n
+realizeAux (Atom p) = realizeAtom p
 realizeAux (Negation f) = realizeNegation f
 realizeAux (Or f1 f2) = realizeDisjunction f1 f2
 realizeAux (And f1 f2) = realizeConjunction f1 f2
@@ -28,10 +32,10 @@ realizeAux (Variable var) = realizeVariable var
 realizeAux (PossiblyNext transition f) = realizeTransition transition f
 realizeAux (Mu var f) = realizeMu var f
 
-realizeProposition :: Int -> Context -> MuModel -> Realization
-realizeProposition i _ m = case (0 <= i) && (i < dimension m) of
-                             False -> Left PropositionIndexError
-                             True -> Right $ (top m) `setAnd` (Implicit (unit i True) 1)
+realizeAtom :: PropositionLabel -> Context -> MuModel -> Realization
+realizeAtom p _ m = case M.lookup p (props m) of
+                      Nothing -> Left UnknownPropositionError
+                      Just (stateSet) -> Right stateSet
 
 realizeNegation :: MuFormula -> Context -> MuModel -> Realization
 realizeNegation f c m = let newContext = c { parity = not (parity c) }

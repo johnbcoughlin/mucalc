@@ -70,24 +70,34 @@ toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates
 - other OBDDs.
 - See forceTransition
 -}
-type Transition = StateSet
+type PhysicalTransition = StateSet
 
-fromFunction :: Int -> (State -> ExplicitStateSet) -> Transition
+predicateToPhysicalTransition :: Int -> (State -> Bool) -> PhysicalTransition
+predicateToPhysicalTransition n f = let allStates = enumerateStates n
+                                        trueStates = S.fromList (filter f allStates)
+                                        explicit = Explicit trueStates n
+                                     in fromExplicit explicit
+
+fanoutToPhysicalTransition :: Int -> (State -> [State]) -> PhysicalTransition
+fanoutToPhysicalTransition n f = let explicit = (\s -> Explicit (S.fromList (f s)) n)
+                                  in fromFunction n explicit
+
+fromFunction :: Int -> (State -> ExplicitStateSet) -> PhysicalTransition
 fromFunction dim f = foldl (\accum -> (\transition -> accum `setOr` transition))
                            (newBottom (dim * 2))
                            (map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
 
-fromSingleFunctionApplication :: State -> ExplicitStateSet -> Int -> Transition
+fromSingleFunctionApplication :: State -> ExplicitStateSet -> Int -> PhysicalTransition
 fromSingleFunctionApplication input output dim = let combinedVectors = S.map (++input) (states output)
                                                   in fromExplicit (Explicit combinedVectors dim)
 
---The set of states from which a phi-state is reachable through the given Transition
-throughTransition :: StateSet -> Transition -> StateSet
+--The set of states from which a phi-state is reachable through the given PhysicalTransition
+throughTransition :: StateSet -> PhysicalTransition -> StateSet
 throughTransition phi tr = rebase $ forceTransition phi tr
 
 --Force a transition to map onto phi-states.
 --This is done by taking the intersection of valid (output, input) tuples with the set of desired phi-outputs.
-forceTransition :: StateSet -> Transition -> Transition
+forceTransition :: StateSet -> PhysicalTransition -> PhysicalTransition
 forceTransition phi tr = tr `setAnd` phi
 
 --Whoo, power sets. This should be pretty efficient with laziness.
@@ -97,7 +107,7 @@ enumerateStates dim = let cardinality = 2^dim::Int
                           toBitList = (\n -> map (testBit n) [0..dim-1])
                         in map toBitList ints
 
-rebase :: Transition -> StateSet
+rebase :: PhysicalTransition -> StateSet
 rebase tr = let n = (setDim tr) `div` 2
                 justInputs = exists_many (S.fromList [0..n-1]) (obdd tr)
                 hashes = all_models justInputs

@@ -1,10 +1,9 @@
 module MuCalc.MuFormula where
 
 import Data.Map
+import MuCalc.MuModel
 
-type TransitionLabel = String
-
-data MuFormula = Proposition Int | --Atomic proposition
+data MuFormula = Atom PropositionLabel | --Atomic proposition
                  Variable String | --Unbound variable
                  Negation MuFormula | Or MuFormula MuFormula | And MuFormula MuFormula |
                  PossiblyNext TransitionLabel MuFormula | --(E X): If there's a transition with that label leading to a state where the formula holds.
