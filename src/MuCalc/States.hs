@@ -68,13 +68,13 @@ toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates
 {-
 - Propositions are encoded as the set of states in which they are true.
 -}
-type PhysicalProposition = StateSet
+type PProp = StateSet
 
-predicateToPhysicalProposition :: Int -> (PState -> Bool) -> PhysicalProposition
-predicateToPhysicalProposition n f = let allStates = enumerateStates n
-                                         trueStates = S.fromList (filter f allStates)
-                                         explicit = Explicit trueStates n
-                                      in fromExplicit explicit
+predicateToPProp :: Int -> (PState -> Bool) -> PProp
+predicateToPProp n f = let allStates = enumerateStates n
+                           trueStates = S.fromList (filter f allStates)
+                           explicit = Explicit trueStates n
+                        in fromExplicit explicit
 
 {-
 - Actions are encoded as OBDDs over two copies of the variables. We use the

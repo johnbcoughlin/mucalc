@@ -19,13 +19,17 @@ type PhysicalRealization = Either RealizationError StateSet
 
 data Context = Context { parity :: Bool
                        , env :: (M.Map String StateSet)
+                       , atoms :: (M.Map String StateSet)
+                       , transitions :: (M.Map String StateSet)
                        }
+
+fixContext :: State s => MuModel s -> Context
 
 --Construct the set of states of this model which satisfy the given formula.
 realize :: State s => MuFormula -> MuModel s -> Realization s
-realize phi = case realizeAux phi (Context {parity=True, env=M.empty}) of
-                Left e -> e
-                Right stateSet -> error "foo"
+realize phi model = case realizeAux phi (Context {parity=True, env=M.empty}) model of
+                         Left e -> Left e
+                         Right stateSet -> error "foo"
 
 realizeAux :: MuFormula -> Context -> MuModel s -> PhysicalRealization
 realizeAux (Atom p) = realizeAtom p
@@ -81,7 +85,7 @@ realizeMu var f c m = case M.lookup var (env c) of
 leastFixpoint :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization
 leastFixpoint var f c m = let loop = fixpointLoop var f c m
                               test = (==)
-                           in fixpoint loop test (Right $ bottom m)
+                           in fixpoint loop test (Right . newBottom $ dimension m)
 
 fixpointLoop :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization -> PhysicalRealization
 fixpointLoop var f c m (Left error) = Left error

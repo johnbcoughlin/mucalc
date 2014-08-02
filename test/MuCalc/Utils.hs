@@ -7,7 +7,7 @@ import MuCalc.States
 import MuCalc.Realization
 import MuCalc.MuModel
 import Test.QuickCheck
-import Test.HUnit hiding (Test)
+import Test.HUnit hiding (Test, State)
 import Test.Framework.Providers.QuickCheck2
 import Test.Framework.Providers.HUnit
 import Test.Framework
@@ -19,14 +19,13 @@ implies p q = (not p) || q
 iff p q = (p `implies` q) && (q `implies` p)
 
 --Chain these guys for maximum fun
-extract :: Realization -> (StateSet -> Property) -> Property
+extract :: State s => Realization s -> ([s] -> Property) -> Property
 extract (Left e) = error $ show e --ignore the given property computation
-extract (Right set) = ($set) --apply the given computation to the set
+extract (Right states) = ($states) --apply the given computation to the set
 
-assertRealization :: Realization -> (S.Set PState -> Assertion) -> Assertion
-assertRealization (Left error) = const (assert False)
-assertRealization (Right set) = let s = states (toExplicit set)
-                                 in ($s)
+assertRealization :: State s => Realization s -> ([s] -> Assertion) -> Assertion
+assertRealization (Left e) = error $ show e
+assertRealization (Right states) = ($states)
 
 setNthElement :: [a] -> Int -> a -> [a]
 setNthElement xs i val = fnt ++ val : bck

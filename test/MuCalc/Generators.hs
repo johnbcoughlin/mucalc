@@ -46,13 +46,13 @@ forAllModelsSuchThat test prop = forAll dimensions (\n ->
 
 
 models :: Int -> Gen MuModel
-models n = let base = (newMuModel n) `withPropositions` (eqPropositions n)
+models n = let base = (newMuModel n) `withProps` (eqPropositions n)
                actionLists = listOf (iffActions n)
             in (\aList -> let count = length aList
-                               itoa i = "A:" ++ [chr (i + 65)]
-                               aNames = map itoa [0..count]
-                               aMap = M.fromList $ zip aNames aList
-                            in base `withActions` aMap) <$> actionLists
+                              itoa i = "A:" ++ [chr (i + 65)]
+                              aNames = map itoa [0..count]
+                              aMap = M.fromList $ zip aNames aList
+                           in base `withActions` aMap) <$> actionLists
 
 --A map of named propositions, each of which checks the value of a state at the given index.
 eqPropositions n = let forIndex i = (!!i)
@@ -83,7 +83,7 @@ data FormulaGenBranch = Prop | Var | Neg | Conj | Disj | Action | Fixp
 data FormulaGenContext = FormulaGenContext { dim :: Int
                                            , prty :: Bool
                                            , pLabels :: [String]
-                                           , trLabels :: [String]
+                                           , aLabels :: [String]
                                            , vars :: [String]
                                            , usedVars :: [String]
                                            , freqs :: M.Map FormulaGenBranch Int
@@ -107,7 +107,7 @@ allFormulas c = frequency [ (cf c Prop, atoms c)
                        , (cf c Neg, negations c)
                        , (cf c Disj, disjunctions c)
                        , (cf c Conj, conjunctions c)
-                       , (cf c Action, if not (null (actionLabels c))
+                       , (cf c Action, if not (null (aLabels c))
                                     then possiblyNexts c
                                     else conjunctions c)
                        , (cf c Fixp, fixpointOperators c)
