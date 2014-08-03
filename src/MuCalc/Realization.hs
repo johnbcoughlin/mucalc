@@ -5,7 +5,7 @@ import OBDD hiding ((&&), not)
 import qualified Data.Map as M
 import MuCalc.MuFormula
 import MuCalc.MuModel
-import MuCalc.States hiding (dimension)
+import MuCalc.States
 import Control.Exception
 
 data RealizationError = VariableParityError | UnknownPropositionError |
@@ -85,7 +85,7 @@ realizeMu var f c m = case M.lookup var (env c) of
 leastFixpoint :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization
 leastFixpoint var f c m = let loop = fixpointLoop var f c m
                               test = (==)
-                           in fixpoint loop test (Right . newBottom $ dimension m)
+                           in fixpoint loop test (Right . newBottom)
 
 fixpointLoop :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization -> PhysicalRealization
 fixpointLoop var f c m (Left error) = Left error
