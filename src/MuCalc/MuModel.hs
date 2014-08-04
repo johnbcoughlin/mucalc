@@ -1,10 +1,9 @@
-module MuCalc.MuModel ( State
+module MuCalc.MuModel ( State , encode, decode
                       , MuModel
                       , newMuModel
-                      , actions, props, bottom, top
-                      , withProps
+                      , actions, props
+                      , withDomain
                       , withProp
-                      , withActions
                       , withAction
                       )
                       where
@@ -29,50 +28,35 @@ class State s where
   encode :: s -> PState
   -- | Tries to decode a boolean vector to a logical state
   decode :: PState -> Maybe s
-  
 
-data MuModel s = MuModel { props :: (M.Map String (s -> Bool))
-                         , actions :: (M.Map String (s -> [s]))
+data MuModel s = MuModel { props :: (M.Map String PProp)
+                         , actions :: (M.Map String PAction)
+                         -- | The entire state space. We do our best not to iterate over this,
+                         -- but when for example a proposition is encoded as a predicate on states,
+                         -- it's unavoidable.
+                         , domain :: [s]
                          }
-                         deriving (Show)
 
 -- | Construct a new empty model with the given state type.
 newMuModel :: State s => MuModel s
 newMuModel = MuModel { props=M.empty
                      , actions=M.empty
+                     , domain=[]
                      }
 
--- | Add a collection of propositions with labels to the model.
-withProps :: State s => MuModel s -> M.Map String (s -> Bool) -> MuModel s
-withProps m propositionMap = let mProps = M.map encodeProp propositionMap
-                              in m {props=mProps}
+withDomain :: State s => MuModel s -> [s] -> MuModel s
+withDomain m d = m {domain=d}
 
 -- | Add a single labeled proposition to the model.
 withProp :: State s => MuModel s -> String -> (s -> Bool) -> MuModel s
-withProp m label prop = let pprop = encodeProp prop
-                            mProps = M.insert label pprop (actions m)
+withProp m label prop = let f pState = maybe (error "Couldn't decode PState") prop (decode pState)
+                            pStates = map encode (domain m)
+                            mProps = M.insert label (fromPredicate pStates f) (props m)
                          in m {props=mProps}
-
-encodeProp :: State s => (s -> Bool) -> PProp
-encodeProp f = let ppred v = case decode v of
-                              Just s -> f s
-                              Nothing -> False
-                in predicateToPProp ppred
-
--- | Add a collection of actions with labels to the model.
-withActions :: State s => MuModel s -> M.Map String (s -> [s]) -> MuModel s
-withActions m trs = let mTrs = M.map encodeAction trs
-                     in m {actions=mTrs}
 
 -- | Add a single labeled action to the model.
 withAction :: State s => MuModel s -> String -> (s -> [s]) -> MuModel s
-withAction m label tr = let physicalTr = encodeAction tr
-                            mTrs = M.insert label physicalTr (actions m)
+withAction m label tr = let f pState = map encode (maybe (error "Couldn't decode PState") tr (decode pState))
+                            pStates = map encode (domain m)
+                            mTrs = M.insert label (fromFunction pStates f) (actions m)
                          in m {actions=mTrs}
-
-encodeAction :: State s => (s -> [s]) -> PAction
-encodeAction f = let g = map encode . f -- :: s -> [PState]
-                     h ps = case decode ps of
-                                 Nothing -> []
-                                 Just s -> g s
-                    in fanoutToPAction h

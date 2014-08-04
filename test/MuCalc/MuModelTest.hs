@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
 module MuCalc.MuModelTest (testList) where
 
 import qualified Data.Set as S
@@ -10,7 +12,7 @@ import MuCalc.Realization
 import MuCalc.Utils
 import Test.HUnit hiding (State)
 import MuCalc.Generators
-import MuCalc.MuModelProperties (formulaProperties)
+import Data.Maybe
 
 import Test.Framework
 import Test.Framework.Providers.HUnit
@@ -23,13 +25,18 @@ testList = [ testGroup "Variable parity" variableParityTests
            , testCase "allFalseReachable" allFalseReachableTest
            , testCase "exactlyOneTrueReachable" exactlyOneTrueReachableTest
            , testGroup "Fixpoint tests" muTestCases
-           , testGroup "Formula Properties" formulaProperties
            ]
 
-aContext = Context True (M.singleton "A" (newBottom 2))
-aModel = (newMuModel 2) `withPropositions` M.fromList [ ("1", Proposition ((!!1)))
-                                                      , ("2", Proposition ((!!2)))
-                                                      ]
+instance State PState where
+  encode = id
+  decode = Just . id
+
+aContext = Context True (M.singleton "A" newBottom)
+aModel = let base = newMuModel::MuModel PState
+             m1 = withProp base "1" (!!1)
+             m2 = withProp m1 "2" (!!2)
+             m3 = m2 `withDomain` enumerateStates 2
+          in m3
 
 variableParityTests = zipTestCases [ ("Positive", positiveVariableParityTest)
                                    , ("Negative", negativeVariableParityTest)
@@ -66,11 +73,13 @@ s2Test = setOneTrue [True, True] @?= [[True, True]]
 s3Test = setOneTrue [False, False] @?= [[False, False], [True, False], [False, True]]
 
 n = 3
-m = (newMuModel n) `withActions` (M.singleton "setOneTrue" (Action setOneTrue))
-                   `withPropositions` M.fromList [ ("1", Proposition ((!!1)))
-                                                 , ("2", Proposition ((!!2)))
-                                                 , ("3", Proposition ((!!3)))
-                                                 ]
+m = let base = newMuModel::MuModel PState
+        m1 = withAction base "setOneTrue" setOneTrue
+        m2 = withProp m1 "1" (!!1)
+        m3 = withProp m2 "2" (!!2)
+        m4 = withProp m3 "3" (!!3)
+        m5 = m4 `withDomain` enumerateStates n
+     in m5
 
 allFalse = And (Negation (Atom "0"))
           (And (Negation (Atom "1"))
@@ -94,23 +103,23 @@ testFormulaTests = zipTestCases [ ("All false", allFalseTest)
                                 , ("All true", allTrueTest)
                                 ]
 
-allFalseTest = assertRealization (realize allFalse m) (\set ->
-                 set @?= S.fromList [[False, False, False]])
-exactlyOneTrueTest = assertRealization (realize exactlyOneTrue m) (\set ->
-                       set @?= S.fromList exactlyOneTrueList)
-exactlyTwoTrueTest = assertRealization (realize exactlyTwoTrue m) (\set ->
-                       set @?= S.fromList exactlyTwoTrueList)
-allTrueTest = assertRealization (realize allTrue m) (\set ->
-                set @?= S.fromList [[True, True, True]])
+allFalseTest = assertRealization (realize allFalse m) (\list ->
+                 list @?= [[False, False, False]])
+exactlyOneTrueTest = assertRealization (realize exactlyOneTrue m) (\list ->
+                       list @?= exactlyOneTrueList)
+exactlyTwoTrueTest = assertRealization (realize exactlyTwoTrue m) (\list ->
+                       list @?= exactlyTwoTrueList)
+allTrueTest = assertRealization (realize allTrue m) (\list ->
+                list @?= [[True, True, True]])
 
 --Test the reachability of the states through the action
 allFalseReachableTest = let phi = PossiblyNext "setOneTrue" allFalse
-                           in assertRealization (realize phi m) (\set ->
-                                set @?= S.fromList [[False, False, False]])
+                           in assertRealization (realize phi m) (\list ->
+                                list @?= [[False, False, False]])
 
 exactlyOneTrueReachableTest = let phi = PossiblyNext "setOneTrue" exactlyOneTrue
-                               in assertRealization (realize phi m) (\set ->
-                                    set @?= S.fromList ([False, False, False] : exactlyOneTrueList))
+                               in assertRealization (realize phi m) (\list ->
+                                    list @?= ([False, False, False] : exactlyOneTrueList))
 
 muTestCases = zipTestCases [ ("Least fixpoint of constant", constantFixpointTest)
                            , ("Least fixpoint of disjunction", simpleOrFixpointTest)
@@ -122,17 +131,17 @@ muTestCases = zipTestCases [ ("Least fixpoint of constant", constantFixpointTest
 
 --The least fixpoint of a constant function should be the constant
 constantFixpointTest = let phi = Mu "A" exactlyOneTrue
-                        in assertRealization (realize phi m) (\set ->
-                             set @?= S.fromList exactlyOneTrueList)
+                        in assertRealization (realize phi m) (\list ->
+                             list @?= exactlyOneTrueList)
 
 --The least fixpoint of \Z -> Z || phi should be phi
 simpleOrFixpointTest = let phi = Mu "A" (Or (exactlyOneTrue) (Variable "A"))
-                        in assertRealization (realize phi m) (\set ->
-                             set @?= S.fromList exactlyOneTrueList)
+                        in assertRealization (realize phi m) (\list ->
+                             list @?= exactlyOneTrueList)
 
 simpleAndFixpointTest = let phi = Mu "A" (And (exactlyOneTrue) (Variable "A"))
-                         in assertRealization (realize phi m) (\set ->
-                              set @?= S.fromList [])
+                         in assertRealization (realize phi m) (\list ->
+                              list @?= [])
 
 unboundVariableCheck = let phi = Mu "A" (And (exactlyOneTrue) (Variable "B"))
                         in (realize phi m) @?= Left UnknownVariableError

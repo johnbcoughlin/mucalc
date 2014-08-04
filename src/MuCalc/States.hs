@@ -6,18 +6,21 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Bits
 import Data.Maybe (fromMaybe)
+import Data.List (foldl')
 
 type PState = [Bool]
 
+-- | Representation of a set of boolean vectors using an ordered binary
+-- decision diagram. Includes a specification of the dimension of the
+-- vectors.
 data StateSet = Implicit { obdd :: (OBDD Int)
-                         , setDim :: Int
+                         , setDim :: Maybe Int
                          }
 
 data ExplicitStateSet = Explicit { states :: S.Set PState
                                  , explicitDim :: Int
                                  }
                                  deriving (Eq)
-
 
 instance Show StateSet where
   show = show . all_models . obdd
@@ -26,21 +29,34 @@ instance Eq StateSet where
   (==) set1 set2 = (toExplicit set1) == (toExplicit set2)
 
 --Contains no states
-newBottom :: Int -> StateSet
-newBottom = Implicit (constant False)
+newBottom :: StateSet
+newBottom = Implicit (constant False) Nothing
 
 --Contains every state
 newTop :: Int -> StateSet
-newTop = Implicit (constant True)
+newTop n = Implicit (constant True) (Just n)
 
---Binary and unary state set operators. They all preserve the dimension of the first argument.
---Union of two state sets
+--Binary and unary state set operators.
 setOr :: StateSet -> StateSet -> StateSet
-setOr set1 set2 = Implicit (obdd set1 || obdd set2) (setDim set1)
+setOr = stateSetBinaryOp (OBDD.||)
 
 --Intersection of two state sets
 setAnd :: StateSet -> StateSet -> StateSet
-setAnd set1 set2 = Implicit (obdd set1 OBDD.&& obdd set2) (setDim set1)
+setAnd = stateSetBinaryOp (OBDD.&&)
+
+-- | Defines a binary operator on two state sets in terms of an operator on their underlying
+-- OBDD's. Requires that one or both dimensions be Nothing, or that, if they are known, they're equal.
+stateSetBinaryOp :: (OBDD Int -> OBDD Int -> OBDD Int) -> StateSet -> StateSet -> StateSet
+stateSetBinaryOp op set1 set2 = let obdd1 = obdd set1
+                                    obdd2 = obdd set2
+                                 in case setDim set1 of
+                                         Nothing -> Implicit (obdd1 `op` obdd2) (setDim set2)
+                                         Just n1 -> case setDim set2 of
+                                                         Nothing -> Implicit (obdd1 `op` obdd2) (setDim set2)
+                                                         Just n2 -> if n1 == n2
+                                                                    then Implicit (obdd1 `op` obdd2) (Just n1)
+                                                                    else error "Dimensions must match"
+
 
 setNot :: StateSet -> StateSet
 setNot set = Implicit (not $ obdd set) (setDim set)
@@ -48,33 +64,29 @@ setNot set = Implicit (not $ obdd set) (setDim set)
 contains :: StateSet -> PState -> Bool
 contains set state = satisfiable $ foldl inject (obdd set) [0..n-1]
   where inject cur i = instantiate i (state !! i) cur
-        n = setDim set
+        n = maybe 0 id (setDim set)
 
 singleton :: PState -> StateSet
 singleton state = let n = length state
                       units = map (\i -> unit i (state !! i)) [0..n-1]
-                   in Implicit (OBDD.and units) n
+                   in Implicit (OBDD.and units) (Just n)
 
-fromExplicit :: ExplicitStateSet -> StateSet
-fromExplicit set = S.foldl' (\accum state -> accum `setOr` (singleton state))
-                                   (newBottom (explicitDim set))
-                                   (states set)
+fromExplicit :: [PState] -> StateSet
+fromExplicit list = foldl' (\accum state -> accum `setOr` (singleton state)) newBottom list
 
 --Used for testing
 toExplicit :: StateSet -> ExplicitStateSet
 toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates n)) n
-  where n = setDim set
+  where n = maybe 0 id (setDim set)
 
 {-
 - Propositions are encoded as the set of states in which they are true.
 -}
 type PProp = StateSet
 
-predicateToPProp :: Int -> (PState -> Bool) -> PProp
-predicateToPProp n f = let allStates = enumerateStates n
-                           trueStates = S.fromList (filter f allStates)
-                           explicit = Explicit trueStates n
-                        in fromExplicit explicit
+fromPredicate :: [PState] -> (PState -> Bool) -> PProp
+fromPredicate domain f = let trueStates = filter f domain
+                          in fromExplicit trueStates
 
 {-
 - Actions are encoded as OBDDs over two copies of the variables. We use the
@@ -84,17 +96,13 @@ predicateToPProp n f = let allStates = enumerateStates n
 -}
 type PAction = StateSet
 
-fanoutToPAction :: Int -> (PState -> [PState]) -> PAction
-fanoutToPAction n f = let explicit s = Explicit (S.fromList (f s)) n
-                                  in fromFunction n explicit
+fromFunction :: [PState] -> (PState -> [PState]) -> PAction
+fromFunction domain f = foldl setOr newBottom
+                           (map (\s -> fromSingleFunctionApplication s (f s)) domain)
 
-fromFunction :: Int -> (PState -> ExplicitStateSet) -> PAction
-fromFunction dim f = foldl setOr (newBottom (dim * 2))
-                           (map (\s -> fromSingleFunctionApplication s (f s) dim) (enumerateStates dim))
-
-fromSingleFunctionApplication :: PState -> ExplicitStateSet -> Int -> PAction
-fromSingleFunctionApplication input output dim = let combinedVectors = S.map (++input) (states output)
-                                                  in fromExplicit (Explicit combinedVectors dim)
+fromSingleFunctionApplication :: PState -> [PState] -> PAction
+fromSingleFunctionApplication input output = let combinedVectors = map (++input) output
+                                              in fromExplicit combinedVectors
 
 --The set of states from which a phi-state is reachable through the given PAction
 throughAction :: StateSet -> PAction -> StateSet
@@ -113,12 +121,11 @@ enumerateStates dim = let cardinality = 2^dim::Int
                         in map toBitList ints
 
 rebase :: PAction -> StateSet
-rebase tr = let n = (setDim tr) `div` 2
+rebase tr = let n = maybe 0 (`div` 2) (setDim tr)
                 justInputs = exists_many (S.fromList [0..n-1]) (obdd tr)
                 hashes = all_models justInputs
                 stateList = concatMap (rebaseMapToState n) hashes
-                explicit = Explicit (S.fromList stateList) n
-             in fromExplicit explicit
+             in fromExplicit stateList
 
 rebaseMapToState :: Int -> M.Map Int Bool -> [PState]
 rebaseMapToState n hash = let allStates = enumerateStates n

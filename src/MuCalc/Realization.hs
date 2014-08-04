@@ -17,13 +17,11 @@ type Realization s = Either RealizationError [s]
 
 type PhysicalRealization = Either RealizationError StateSet
 
+-- | Context for the evaluation of a model realization. Includes atomic propositions
+-- encoded as StateSets, and actions encoded as transition relations, i.e. as StateSets.
 data Context = Context { parity :: Bool
                        , env :: (M.Map String StateSet)
-                       , atoms :: (M.Map String StateSet)
-                       , transitions :: (M.Map String StateSet)
                        }
-
-fixContext :: State s => MuModel s -> Context
 
 --Construct the set of states of this model which satisfy the given formula.
 realize :: State s => MuFormula -> MuModel s -> Realization s
@@ -85,7 +83,7 @@ realizeMu var f c m = case M.lookup var (env c) of
 leastFixpoint :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization
 leastFixpoint var f c m = let loop = fixpointLoop var f c m
                               test = (==)
-                           in fixpoint loop test (Right . newBottom)
+                           in fixpoint loop test (Right newBottom)
 
 fixpointLoop :: String -> MuFormula -> Context -> MuModel s -> PhysicalRealization -> PhysicalRealization
 fixpointLoop var f c m (Left error) = Left error
