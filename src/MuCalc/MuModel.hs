@@ -37,10 +37,11 @@ data MuModel s = MuModel { props :: (M.Map String PProp)
                          }
 
 -- | Construct a new empty model with the given state type.
-newMuModel :: State s => MuModel s
-newMuModel = MuModel { props=M.empty
-                     , actions=M.empty
-                     }
+newMuModel :: State s => [s] -> MuModel s
+newMuModel d = MuModel { props=M.empty
+                       , actions=M.empty
+                       , domain=d
+                       }
 
 -- | Add a single labeled proposition to the model.
 withProp :: State s => MuModel s -> String -> (s -> Bool) -> MuModel s

@@ -103,7 +103,7 @@ isInitial _ = False
 isWinning (3, 0) = True
 isWinning _ = False
 isPassable (x, y) = x /= y
-model = let base = (newMuModel::MuModel Position) {domain=board}
+model = let base = (newMuModel board)
             m1 = withAction base "move" move
             m2 = withProp m1 "initial" isInitial
             m3 = withProp m2 "winning" isWinning
