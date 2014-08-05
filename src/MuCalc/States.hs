@@ -75,8 +75,8 @@ fromExplicit :: [PState] -> StateSet
 fromExplicit list = foldl' (\accum state -> accum `setOr` (singleton state)) newBottom list
 
 --Used for testing
-toExplicit :: StateSet -> ExplicitStateSet
-toExplicit set = Explicit (S.fromList $ filter (set `contains`) (enumerateStates n)) n
+toExplicit :: StateSet -> [PState]
+toExplicit set = filter (set `contains`) (enumerateStates n)
   where n = maybe 0 id (setDim set)
 
 {-

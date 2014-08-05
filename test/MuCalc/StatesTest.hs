@@ -20,7 +20,7 @@ testList = [ testProperty "empty bottom" emptyBottom
            ]
 
 emptyBottom = forAll dimensions (\n ->
-              forAll (dimNStates n) (not . (newBottom n `contains`)))
+              forAll (dimNStates n) (not . (newBottom `contains`)))
 
 fullTop = forAll dimensions (\n ->
           forAll (dimNStates n) (newTop n `contains`))
@@ -29,32 +29,33 @@ singletonProp = forAllStates (\state -> (singleton state) `contains` state)
 
 fromExplicitProperty = forAll dimensions (\n ->
                        forAll (listOf (dimNStates n)) (\states ->
-                         let stateSet = fromExplicit (Explicit (S.fromList states) n)
+                         let stateSet = fromExplicit states
                           in all (stateSet `contains`) states))
 
 explicitBijectionProperty = forAll dimensions (\n ->
                             forAll (listOf (dimNStates n)) (\list ->
-                              let explicit = (Explicit (S.fromList list) n)
-                               in explicit == toExplicit (fromExplicit explicit)))
+                              list == toExplicit (fromExplicit list)))
 
 --Expect the [output, input] pair of n-vector tuples
 actionProperty = forAll dimensions (\n ->
-                     forAll (iffActions n) (\f ->
-                     forAll (dimNStates n) (\state ->
-                       let action = fanoutToPAction n f
-                           expected = map (++state) (f state)
-                        --Verify that the action set contains every expected value.
-                        in all (action `contains`) expected)))
+                   let domain = enumerateStates n
+                    in forAll (iffActions n) (\f ->
+                       forAll (dimNStates n) (\state ->
+                         let action = fromFunction domain f
+                             expected = map (++state) (f state)
+                          --Verify that the action set contains every expected value.
+                          in all (action `contains`) expected)))
 
 --Check that the action pullback function pulls back to states from which we can reach the goal image.
 actionPullbackProperty = forAll dimensions (\n ->
-                             forAll (iffActions n) (\f ->
-                             forAll (listOf (dimNStates n)) (\stateList ->
-                               let action = fanoutToPhysicalAction n f
-                                   image = fromExplicit (Explicit (S.fromList stateList) n)
-                                   preImage = S.elems . states . toExplicit $ throughAction image action
-                                   hasAnyFResultsInImage preImageState = any (image `contains`) (f preImageState)
-                                in all hasAnyFResultsInImage preImage)))
+                           let domain = enumerateStates n
+                            in forAll (iffActions n) (\f ->
+                               forAll (listOf (dimNStates n)) (\stateList ->
+                                 let action = fromFunction domain f
+                                     image = fromExplicit stateList
+                                     preImage = toExplicit $ throughAction image action
+                                     hasAnyFResultsInImage preImageState = any (image `contains`) (f preImageState)
+                                  in all hasAnyFResultsInImage preImage)))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.
 mapToStateListTest = let hash = M.fromList [(4, True), (6, False)]
