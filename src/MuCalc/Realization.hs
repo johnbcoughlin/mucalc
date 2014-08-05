@@ -27,7 +27,12 @@ data Context = Context { parity :: Bool
 realize :: State s => MuFormula -> MuModel s -> Realization s
 realize phi model = case realizeAux phi (Context {parity=True, env=M.empty}) model of
                          Left e -> Left e
-                         Right stateSet -> error "foo"
+                         Right stateSet -> Right (map strictDecode $ toExplicit stateSet)
+
+strictDecode :: State s => PState -> s
+strictDecode pState = case decode pState of
+                           Nothing -> error ("Undecodeable physical state: " ++ show pState)
+                           Just s -> s
 
 realizeAux :: MuFormula -> Context -> MuModel s -> PhysicalRealization
 realizeAux (Atom p) = realizeAtom p
@@ -44,7 +49,7 @@ realizeAtom p _ m = case M.lookup p (props m) of
                       Just (stateSet) -> Right stateSet
 
 realizeNegation :: MuFormula -> Context -> MuModel s -> PhysicalRealization
-realizeNegation f c m = let newContext = c { parity = not (parity c) }
+realizeNegation f c m = let newContext = c {parity = not (parity c)}
                             r = realizeAux f newContext m
                          in case r of
                            Left e -> Left e

@@ -27,16 +27,16 @@ testList = [ testGroup "Variable parity" variableParityTests
            , testGroup "Fixpoint tests" muTestCases
            ]
 
+-- | State space of boolean 3-vectors
 instance State PState where
   encode = id
   decode = Just . id
 
 aContext = Context True (M.singleton "A" newBottom)
-aModel = let base = newMuModel::MuModel PState
+aModel = let base = (newMuModel :: MuModel PState) {domain=enumerateStates 2}
              m1 = withProp base "0" (!!0)
              m2 = withProp m1 "1" (!!1)
-             m3 = m2 `withDomain` enumerateStates 2
-          in m3
+          in m2
 
 variableParityTests = zipTestCases [ ("Positive", positiveVariableParityTest)
                                    , ("Negative", negativeVariableParityTest)
@@ -73,13 +73,12 @@ s2Test = setOneTrue [True, True] @?= [[True, True]]
 s3Test = setOneTrue [False, False] @?= [[False, False], [True, False], [False, True]]
 
 n = 3
-m = let base = newMuModel::MuModel PState
+m = let base = (newMuModel::MuModel PState) {domain=enumerateStates 3}
         m1 = withAction base "setOneTrue" setOneTrue
         m2 = withProp m1 "0" (!!0)
         m3 = withProp m2 "1" (!!1)
         m4 = withProp m3 "2" (!!2)
-        m5 = m4 `withDomain` enumerateStates n
-     in m5
+     in m4
 
 allFalse = And (Negation (Atom "0"))
           (And (Negation (Atom "1"))

@@ -1,8 +1,7 @@
-module MuCalc.MuModel ( State , encode, decode
+module MuCalc.MuModel ( State , encode, decode, domain
                       , MuModel
                       , newMuModel
                       , actions, props
-                      , withDomain
                       , withProp
                       , withAction
                       )
@@ -41,11 +40,7 @@ data MuModel s = MuModel { props :: (M.Map String PProp)
 newMuModel :: State s => MuModel s
 newMuModel = MuModel { props=M.empty
                      , actions=M.empty
-                     , domain=[]
                      }
-
-withDomain :: State s => MuModel s -> [s] -> MuModel s
-withDomain m d = m {domain=d}
 
 -- | Add a single labeled proposition to the model.
 withProp :: State s => MuModel s -> String -> (s -> Bool) -> MuModel s

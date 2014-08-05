@@ -23,6 +23,7 @@ import MuCalc.Realization
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
+import Data.Ix
 
 testList = [ testGroup "Preliminary tests"
              [ testProperty "Position/State conversion" posStateProperty
@@ -96,12 +97,13 @@ legalMovesProperty = forAll (positions) (\pos ->
 - +----+
 - the X's are impassable, the W is the winning square, and the I is the starting square.
 -}
+board = range ((0, 0), (3, 3))
 isInitial (0, 3) = True
 isInitial _ = False
 isWinning (3, 0) = True
 isWinning _ = False
 isPassable (x, y) = x /= y
-model = let base = newMuModel::MuModel Position
+model = let base = (newMuModel::MuModel Position) {domain=board}
             m1 = withAction base "move" move
             m2 = withProp m1 "initial" isInitial
             m3 = withProp m2 "winning" isWinning
@@ -133,7 +135,7 @@ losingGameTest = assertRealization (realize phi model) (@?= [])
 --If we relax the constraint that we start at I, but require that we're not on an impassable square,
 --there should be six winning positions
 psi = success `And` clearSquare
-winningPositionsTest = assertRealization (realize psi model) (\set ->
-                         set @?= [(1, 0), (2, 0), (3, 0),
-                                          (2, 1), (3, 1),
-                                                  (3, 2)])
+winningPositionsTest = assertRealization (realize psi model) (\list ->
+                         S.fromList list @?= S.fromList [(1, 0), (2, 0), (3, 0),
+                                                                 (2, 1), (3, 1),
+                                                                         (3, 2)])
