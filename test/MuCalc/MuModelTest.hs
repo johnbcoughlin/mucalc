@@ -33,8 +33,8 @@ instance State PState where
 
 aContext = Context True (M.singleton "A" newBottom)
 aModel = let base = newMuModel::MuModel PState
-             m1 = withProp base "1" (!!1)
-             m2 = withProp m1 "2" (!!2)
+             m1 = withProp base "0" (!!0)
+             m2 = withProp m1 "1" (!!1)
              m3 = m2 `withDomain` enumerateStates 2
           in m3
 
@@ -75,9 +75,9 @@ s3Test = setOneTrue [False, False] @?= [[False, False], [True, False], [False, T
 n = 3
 m = let base = newMuModel::MuModel PState
         m1 = withAction base "setOneTrue" setOneTrue
-        m2 = withProp m1 "1" (!!1)
-        m3 = withProp m2 "2" (!!2)
-        m4 = withProp m3 "3" (!!3)
+        m2 = withProp m1 "0" (!!0)
+        m3 = withProp m2 "1" (!!1)
+        m4 = withProp m3 "2" (!!2)
         m5 = m4 `withDomain` enumerateStates n
      in m5
 

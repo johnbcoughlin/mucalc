@@ -34,7 +34,7 @@ fromExplicitProperty = forAll dimensions (\n ->
 
 explicitBijectionProperty = forAll dimensions (\n ->
                             forAll (listOf (dimNStates n)) (\list ->
-                              list == toExplicit (fromExplicit list)))
+                              S.fromList list == S.fromList (toExplicit (fromExplicit list))))
 
 --Expect the [output, input] pair of n-vector tuples
 actionProperty = forAll dimensions (\n ->

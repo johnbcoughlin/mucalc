@@ -52,7 +52,7 @@ stateSetBinaryOp op set1 set2 = let obdd1 = obdd set1
                                  in case setDim set1 of
                                          Nothing -> Implicit (obdd1 `op` obdd2) (setDim set2)
                                          Just n1 -> case setDim set2 of
-                                                         Nothing -> Implicit (obdd1 `op` obdd2) (setDim set2)
+                                                         Nothing -> Implicit (obdd1 `op` obdd2) (setDim set1)
                                                          Just n2 -> if n1 == n2
                                                                     then Implicit (obdd1 `op` obdd2) (Just n1)
                                                                     else error "Dimensions must match"
@@ -111,7 +111,7 @@ throughAction phi tr = rebase $ forceAction phi tr
 --Force an action to map onto phi-states.
 --This is done by taking the intersection of valid (output, input) tuples with the set of desired phi-outputs.
 forceAction :: StateSet -> PAction -> PAction
-forceAction phi tr = tr `setAnd` phi
+forceAction phi tr = tr `setAnd` (phi {setDim = maybe Nothing (Just.(*2)) (setDim phi)})
 
 --Whoo, power sets. This should be pretty efficient with laziness.
 enumerateStates :: Int -> [PState]
