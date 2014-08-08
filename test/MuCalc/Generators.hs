@@ -40,7 +40,7 @@ iffActions :: Int -> Gen (PState -> [PState])
 iffActions n = ((mapMasks n) `fmap` listOf (iffMaskGen n))
 
 instance Show (PState -> [PState]) where
-  show f = "tough luck"
+  show = const "tough luck"
 
 --Convenient properties--
 

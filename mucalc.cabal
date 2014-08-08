@@ -16,10 +16,11 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     MuCalc,
-                       MuCalc.MuModel,
+  exposed-modules:     GRSynth,
                        MuCalc.States,
                        MuCalc.MuFormula
+                       GRSynth.GameStructure,
+                       GRSynth.Semantics
   build-depends:       base >=4.6 && <4.7,
                        obdd >=0.3.1,
                        containers

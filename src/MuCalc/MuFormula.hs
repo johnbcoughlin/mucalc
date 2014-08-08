@@ -1,7 +1,6 @@
 module MuCalc.MuFormula where
 
 import Data.Map
-import MuCalc.MuModel
 
 data MuFormula = Atom String | --Atomic proposition
                  Variable String | --Unbound variable
