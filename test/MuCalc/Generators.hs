@@ -13,7 +13,7 @@ import qualified Data.Map as M
 import Data.Char
 import Control.Applicative
 import Data.Functor
-import MuCalc.States
+import GRSynth.States
 import Test.QuickCheck
 import Test.QuickCheck.Function
 

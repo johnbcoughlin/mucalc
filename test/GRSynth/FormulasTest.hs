@@ -7,7 +7,7 @@ import Test.HUnit hiding (State)
 import Test.Framework.Providers.QuickCheck2
 import Test.Framework.Providers.HUnit
 import GRSynth.Formulas
-import MuCalc.States
+import GRSynth.States
 import qualified Data.Map as M
 
 testList = [ testCase "All false" allFalseTest

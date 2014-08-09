@@ -1,4 +1,4 @@
-module MuCalc.States where
+module GRSynth.States where
 
 import OBDD
 import Prelude hiding ((||), or, and, not)

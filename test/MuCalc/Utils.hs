@@ -4,7 +4,7 @@ import Data.Either (either)
 import Data.Maybe (fromJust)
 import qualified Data.Set as S
 import MuCalc.MuFormula hiding (iff, implies)
-import MuCalc.States
+import GRSynth.States
 import MuCalc.Realization
 import GRSynth.Semantics
 import Test.QuickCheck

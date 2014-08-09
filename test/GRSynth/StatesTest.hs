@@ -1,8 +1,8 @@
-module MuCalc.StatesTest (testList) where
+module GRSynth.StatesTest (testList) where
 
 import qualified Data.Set as S
 import qualified Data.Map as M
-import MuCalc.States
+import GRSynth.States
 import MuCalc.Generators
 import Test.HUnit
 import Test.Framework.Providers.HUnit

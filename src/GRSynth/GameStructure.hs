@@ -1,7 +1,7 @@
 module GRSynth.GameStructure where
 
 import qualified Data.Map as M
-import MuCalc.States
+import GRSynth.States
 import GRSynth.Formulas
 import GRSynth.Semantics
 

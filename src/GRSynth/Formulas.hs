@@ -4,7 +4,7 @@ module GRSynth.Formulas ( realize
                         , SimpleFormula (Atom, Negation, Or, And)
                         ) where
 
-import MuCalc.States
+import GRSynth.States
 import Control.Monad.Identity
 import Control.Monad.Error
 import Control.Monad.Reader

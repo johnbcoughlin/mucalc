@@ -5,7 +5,7 @@ import OBDD hiding ((&&), not)
 import qualified Data.Map as M
 import MuCalc.MuFormula
 import GRSynth.Semantics
-import MuCalc.States
+import GRSynth.States
 import Control.Exception
 
 data RealizationError = VariableParityError | UnknownPropositionError |

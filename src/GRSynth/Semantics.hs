@@ -8,7 +8,7 @@ module GRSynth.Semantics ( State, encode, decode
 import Prelude hiding (lookup)
 import OBDD hiding ((&&), (||), not)
 import qualified Data.Map as M
-import MuCalc.States
+import GRSynth.States
 import Control.Exception
 import Data.Maybe
 

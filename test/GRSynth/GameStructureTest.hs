@@ -10,7 +10,7 @@ import Test.HUnit hiding (State, Test)
 import Test.Framework.Providers.HUnit
 import GRSynth.GameStructure
 import GRSynth.Semantics
-import MuCalc.States
+import GRSynth.States
 import MuCalc.Utils
 import qualified GRSynth.FormulasTest as F
 
