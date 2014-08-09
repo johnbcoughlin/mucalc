@@ -104,6 +104,10 @@ fromSingleFunctionApplication :: PState -> [PState] -> PAction
 fromSingleFunctionApplication input output = let combinedVectors = map (++input) output
                                               in fromExplicit combinedVectors
 
+fromRelation :: [(PState, PState)] -> PAction
+fromRelation rel = let singletons = map (\(i, o) -> singleton (o ++ i)) rel
+                    in foldl setOr newBottom singletons
+
 --The set of states from which a phi-state is reachable through the given PAction
 throughAction :: StateSet -> PAction -> StateSet
 throughAction phi tr = rebase $ forceAction phi tr

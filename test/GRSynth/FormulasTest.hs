@@ -1,4 +1,6 @@
-module GRSynth.FormulasTest where
+module GRSynth.FormulasTest ( model
+                            , testList
+                            ) where
 
 import Test.Framework
 import Test.HUnit hiding (State)
@@ -51,8 +53,8 @@ allTrueTest = assertRealization (realize model allTrue) (\list ->
               list @?= [[True, True, True]])
 
 unknownAtomTest = (realize model (And (Atom "0") (Atom "foo")))
-                  @?= Left "Unknown atomic proposition: foo"
+                  @?= Left UnknownAtomError
 
 assertRealization :: Realization -> ([PState] -> Assertion) -> Assertion
-assertRealization (Left s) f = error s
+assertRealization (Left s) f = error $ show s
 assertRealization (Right set) f = f $ toExplicit set

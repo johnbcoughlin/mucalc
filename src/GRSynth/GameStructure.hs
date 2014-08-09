@@ -7,6 +7,7 @@ import GRSynth.Semantics
 
 data (State x, State y) => GameStructure x y = GameStructure { dX :: [x]
                                                              , dY :: [y]
+                                                             , dom :: [(x, y)]
                                                              , props :: M.Map String PProp
                                                              , theta :: SimpleFormula
                                                              , env :: PAction
@@ -15,42 +16,55 @@ data (State x, State y) => GameStructure x y = GameStructure { dX :: [x]
                                                              , guarantees :: [SimpleFormula]
                                                              }
 
-newGameStructure :: (State x, State y) => GameStructure x y
-newGameStructure = error "not implemented: newGameStructure"
+newGameStructure :: (State x, State y) => [x] -> [y] -> GameStructure x y
+newGameStructure xs ys = let xys = [(x, y) | x <- xs, y <- ys]
+                          in GameStructure { dX = xs, dY = ys, dom = xys, props = M.empty }
 
 -- | Adds a named atomic proposition to the given GameStructure. The proposition
 -- is specified as a predicate on complete (input, output) states.
 withPropAsPredicate :: (State x, State y) =>
     GameStructure x y -> String -> ((x, y) -> Bool) -> GameStructure x y
-withPropAsPredicate = error "not implemented: withPropAsPredicate"
+withPropAsPredicate gs label p = let pred (Just (s, _)) = p s
+                                     pred _ = False
+                                     pDom = map encode $ dom gs
+                                     pProp = fromPredicate pDom (pred . decode)
+                                  in gs { props = M.insert label pProp (props gs) }
 
 withPropAsSupport :: (State x, State y) =>
     GameStructure x y -> String -> [(x, y)] -> GameStructure x y
-withPropAsSupport = error "not implemented: withPropAsSupport"
+withPropAsSupport gs label xys = let pProp = fromExplicit (map encode xys)
+                                  in gs { props = M.insert label pProp (props gs) }
 
-withInitialSatisfying :: (State x, State y) =>
-    GameStructure x y -> String -> ((x, y) -> Bool) -> GameStructure x y
-withInitialSatisfying = error "not implemented: withThetaSatisfying"
+withInitialState :: (State x, State y) =>
+    GameStructure x y -> SimpleFormula -> GameStructure x y
+withInitialState gs f = gs { theta=f }
 
-withInitialStates :: (State x, State y) =>
-    GameStructure x y -> String -> [(x, y)] -> GameStructure x y
-withInitialStates = error "not implemented: withInitialStates"
+withEnvActionAsFunction :: (State x, State y) => GameStructure x y -> ((x, y) -> [x]) -> GameStructure x y
+withEnvActionAsFunction gs f = let action (Just (s, _)) = [(x, y) | x <- f s, y <- dY gs]
+                                   action _ = []
+                                   pAction = map encode . action . decode
+                                   pDom = map encode $ dom gs
+                                   transition = fromFunction pDom pAction
+                                in gs { env = transition }
 
-withEnvActionAsFunction :: (State x, State y) =>
-    GameStructure x y -> String -> ((x, y) -> [x]) -> GameStructure x y
-withEnvActionAsFunction = error "not implemented: withEnvActionAsFunction"
+withEnvActionAsRelation :: (State x, State y) => GameStructure x y -> [((x, y), x)] -> GameStructure x y
+withEnvActionAsRelation gs rel = let fullRel = [(s, (x, y)) | (s, x) <- rel, y <- dY gs]
+                                     pRel = map (\(i, o) -> (encode i, encode o)) fullRel
+                                     transition = fromRelation pRel
+                                  in gs { env = transition }
 
-withEnvActionAsRelation :: (State x, State y) =>
-    GameStructure x y -> String -> [((x, y), x)] -> GameStructure x y
-withEnvActionAsRelation = error "not implemented: withEnvActionAsFunction"
+withSysActionAsFunction :: (State x, State y) => GameStructure x y -> ((x, y) -> [(x, y)]) -> GameStructure x y
+withSysActionAsFunction gs f = let action (Just (s, _)) = f s
+                                   action _ = []
+                                   pAction = map encode . action . decode
+                                   pDom = map encode $ dom gs
+                                   transition = fromFunction pDom pAction
+                                in gs { sys = transition }
 
-withSysActionAsFunction :: (State x, State y) =>
-    GameStructure x y -> String -> ((x, y) -> [x]) -> GameStructure x y
-withSysActionAsFunction = error "not implemented: withSysActionAsFunction"
-
-withSysActionAsRelation :: (State x, State y) =>
-    GameStructure x y -> String -> [((x, y), (x, y))] -> GameStructure x y
-withSysActionAsRelation = error "not implemented: withSysActionAsRelation"
+withSysActionAsRelation :: (State x, State y) => GameStructure x y -> [((x, y), (x, y))] -> GameStructure x y
+withSysActionAsRelation gs rel = let pRel = map (\(i, o) -> (encode i, encode o)) rel
+                                     transition = fromRelation pRel
+                                  in gs { sys = transition }
 
 withAssumption :: (State x, State y) =>
     GameStructure x y -> SimpleFormula -> GameStructure x y

@@ -1,8 +1,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module GRSynth.Semantics ( State, encode, decode,
-                           )
-                           where
+module GRSynth.Semantics ( State, encode, decode
+                         , Int2 (Int2)
+                         )
+                         where
 
 import Prelude hiding (lookup)
 import OBDD hiding ((&&), (||), not)
@@ -27,6 +28,7 @@ class State s where
   decode :: PState -> Maybe (s, PState)
 
 newtype Int2 = Int2 Int
+               deriving (Show, Eq, Ord)
 
 instance State Int2 where
   encode (Int2 x) = if x < 0 || x >= 4

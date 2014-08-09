@@ -1,4 +1,8 @@
-module GRSynth.Formulas where
+module GRSynth.Formulas ( realize
+                        , Realization
+                        , RealizationError (UnknownAtomError)
+                        , SimpleFormula (Atom, Negation, Or, And)
+                        ) where
 
 import MuCalc.States
 import Control.Monad.Identity
@@ -10,8 +14,14 @@ data SimpleFormula = Atom String | Negation SimpleFormula |
                      Or SimpleFormula SimpleFormula | And SimpleFormula SimpleFormula
 
 type Model = M.Map String StateSet
-type Realization = Either String StateSet
-type RealizationM = ReaderT Model (ErrorT String Identity) StateSet
+type RealizationM = ReaderT Model (ErrorT RealizationError Identity) StateSet
+
+data RealizationError = UnknownAtomError
+                      deriving (Show, Eq)
+
+instance Error RealizationError
+
+type Realization = Either RealizationError StateSet
 
 realize :: Model -> SimpleFormula -> Realization
 realize m f = runRealize (doRealize f) m
@@ -24,7 +34,7 @@ doRealize :: SimpleFormula -> RealizationM
 doRealize (Atom p) = do model <- ask
                         case M.lookup p model of
                              Just s -> return s
-                             Nothing -> throwError ("Unknown atomic proposition: " ++ p)
+                             Nothing -> throwError UnknownAtomError
 
 doRealize (Negation f) = do rf <- doRealize f
                             return $ setNot rf
