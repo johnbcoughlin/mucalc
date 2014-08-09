@@ -14,8 +14,6 @@ import Data.Char
 import Control.Applicative
 import Data.Functor
 import MuCalc.States
-import MuCalc.MuFormula
-import MuCalc.MuModel
 import Test.QuickCheck
 import Test.QuickCheck.Function
 

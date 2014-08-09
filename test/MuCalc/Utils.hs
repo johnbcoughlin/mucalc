@@ -5,7 +5,7 @@ import qualified Data.Set as S
 import MuCalc.MuFormula hiding (iff, implies)
 import MuCalc.States
 import MuCalc.Realization
-import MuCalc.MuModel
+import GRSynth.Semantics
 import Test.QuickCheck
 import Test.HUnit hiding (Test, State)
 import Test.Framework.Providers.QuickCheck2
