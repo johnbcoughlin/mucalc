@@ -6,6 +6,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Bits
 import Data.Maybe (fromMaybe)
+import Data.Functor
 import Data.List (foldl')
 
 type PState = [Bool]
@@ -115,7 +116,7 @@ throughAction phi tr = rebase $ forceAction phi tr
 --Force an action to map onto phi-states.
 --This is done by taking the intersection of valid (output, input) tuples with the set of desired phi-outputs.
 forceAction :: StateSet -> PAction -> PAction
-forceAction phi tr = tr `setAnd` (phi {setDim = maybe Nothing (Just.(*2)) (setDim phi)})
+forceAction phi tr = tr `setAnd` (phi { setDim = (*2) <$> setDim phi })
 
 --Whoo, power sets. This should be pretty efficient with laziness.
 enumerateStates :: Int -> [PState]

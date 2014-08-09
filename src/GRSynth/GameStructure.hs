@@ -42,10 +42,7 @@ withInitialState gs f = gs { theta=f }
 withEnvActionAsFunction :: (State x, State y) => GameStructure x y -> ((x, y) -> [x]) -> GameStructure x y
 withEnvActionAsFunction gs f = let action (Just (s, _)) = [(x, y) | x <- f s, y <- dY gs]
                                    action _ = []
-                                   pAction = map encode . action . decode
-                                   pDom = map encode $ dom gs
-                                   transition = fromFunction pDom pAction
-                                in gs { env = transition }
+                                in gs { env = actionToTransition gs action }
 
 withEnvActionAsRelation :: (State x, State y) => GameStructure x y -> [((x, y), x)] -> GameStructure x y
 withEnvActionAsRelation gs rel = let fullRel = [(s, (x, y)) | (s, x) <- rel, y <- dY gs]
@@ -56,20 +53,20 @@ withEnvActionAsRelation gs rel = let fullRel = [(s, (x, y)) | (s, x) <- rel, y <
 withSysActionAsFunction :: (State x, State y) => GameStructure x y -> ((x, y) -> [(x, y)]) -> GameStructure x y
 withSysActionAsFunction gs f = let action (Just (s, _)) = f s
                                    action _ = []
-                                   pAction = map encode . action . decode
-                                   pDom = map encode $ dom gs
-                                   transition = fromFunction pDom pAction
-                                in gs { sys = transition }
+                                in gs { sys = actionToTransition gs action }
 
 withSysActionAsRelation :: (State x, State y) => GameStructure x y -> [((x, y), (x, y))] -> GameStructure x y
 withSysActionAsRelation gs rel = let pRel = map (\(i, o) -> (encode i, encode o)) rel
                                      transition = fromRelation pRel
                                   in gs { sys = transition }
 
-withAssumption :: (State x, State y) =>
-    GameStructure x y -> SimpleFormula -> GameStructure x y
-withAssumption = error "not implemented: withAssumption"
+withAssumption :: (State x, State y) => GameStructure x y -> SimpleFormula -> GameStructure x y
+withAssumption gs f = gs { assumptions = f : assumptions gs }
 
-withGuarantee :: (State x, State y) =>
-    GameStructure x y -> SimpleFormula -> GameStructure x y
-withGuarantee = error "not implemented: withGuarantee"
+withGuarantee :: (State x, State y) => GameStructure x y -> SimpleFormula -> GameStructure x y
+withGuarantee gs f = gs { guarantees = f : guarantees gs }
+
+actionToTransition :: (State x, State y) => GameStructure x y -> (Maybe ((x, y), PState) -> [(x, y)]) -> PAction
+actionToTransition gs action = let pAction = map encode . action . decode
+                                   pDom = map encode $ dom gs
+                                in fromFunction pDom pAction
