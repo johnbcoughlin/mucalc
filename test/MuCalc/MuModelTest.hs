@@ -9,7 +9,7 @@ import MuCalc.MuFormula
 import MuCalc.States
 import MuCalc.MuModel
 import MuCalc.Realization
-import MuCalc.Utils
+import GRSynth.Utils
 import Test.HUnit hiding (State)
 import MuCalc.Generators
 import Data.Maybe

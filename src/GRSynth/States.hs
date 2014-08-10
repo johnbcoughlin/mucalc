@@ -5,7 +5,7 @@ import Prelude hiding ((||), or, and, not)
 import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Bits
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Functor
 import Data.List (foldl')
 
@@ -108,6 +108,14 @@ fromSingleFunctionApplication input output = let combinedVectors = map (++input)
 fromRelation :: [(PState, PState)] -> PAction
 fromRelation rel = let singletons = map (\(i, o) -> singleton (o ++ i)) rel
                     in foldl setOr newBottom singletons
+
+--The set of output states reachable from the given input
+processAction :: StateSet -> PAction -> StateSet
+processAction phi tr = let n = (fromJust $ setDim tr) `div` 2
+                           inputForce = forceAction phi (newTop (n * 2))
+                           combined = tr `setAnd` inputForce
+                           justOutputs = exists_many (S.fromList [n..(2*n-1)]) (obdd combined)
+                        in Implicit justOutputs (Just n)
 
 --The set of states from which a phi-state is reachable through the given PAction
 throughAction :: StateSet -> PAction -> StateSet

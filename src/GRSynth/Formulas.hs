@@ -13,7 +13,7 @@ import qualified Data.Map as M
 data SimpleFormula = Atom String | Negation SimpleFormula |
                      Or SimpleFormula SimpleFormula | And SimpleFormula SimpleFormula
 
-type Model = M.Map String StateSet
+type Model = M.Map String PProp
 type RealizationM = ReaderT Model (ErrorT RealizationError Identity) StateSet
 
 data RealizationError = UnknownAtomError

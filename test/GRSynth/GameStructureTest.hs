@@ -4,6 +4,7 @@ module GRSynth.GameStructureTest (testList) where
 
 import qualified Data.Map as M
 import Data.Maybe (fromJust)
+import Data.Functor
 import Control.Applicative
 import Test.Framework
 import Test.HUnit hiding (State, Test)
@@ -11,18 +12,13 @@ import Test.Framework.Providers.HUnit
 import GRSynth.GameStructure
 import GRSynth.Semantics
 import GRSynth.States
-import MuCalc.Utils
+import GRSynth.Utils
 import qualified GRSynth.FormulasTest as F
 
 testList :: [Test]
 testList = [ testGroup "Simple formulas" F.testList
            , testGroup "Game structure constructors" constructorTests
            ]
-
-domX = map Int2 [0..3]
-domY = map Int2 [0..3]
-cartProd = (,) <$> domX <*> domY
-baseGS = newGameStructure domX domY
 
 constructorTests = [ testCase "With prop as predicate" withPropAsPredTest
                    , testGroup "With prop as support" withPropAsSupportTests

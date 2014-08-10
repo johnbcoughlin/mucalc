@@ -1,7 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module GRSynth.Semantics ( State, encode, decode
-                         , Int2 (Int2)
                          )
                          where
 
@@ -26,19 +25,6 @@ class State s where
   -- | Tries to decode part of a boolean vector and return the result, plus
   -- the remainder of the vector.
   decode :: PState -> Maybe (s, PState)
-
-newtype Int2 = Int2 Int
-               deriving (Show, Eq, Ord)
-
-instance State Int2 where
-  encode (Int2 x) = if x < 0 || x >= 4
-                    then error "Invalid 2 bit integer"
-                    else [x >= 2, x `mod` 2 == 1]
-  decode pState = if length pState < 2
-                  then Nothing
-                  else let (two, rest) = splitAt 2 pState
-                           x = (if head two then 2 else 0) + (if head $ tail two then 1 else 0)
-                        in Just (Int2 x, rest)
 
 instance (State x, State y) => State (x, y) where
   encode (x, y) = let px = encode x

@@ -16,6 +16,7 @@ testList = [ testProperty "empty bottom" emptyBottom
            , testProperty "explicit bijections" explicitBijectionProperty
            , testProperty "Action property" actionProperty
            , testProperty "Action pullback property" actionPullbackProperty
+           , testProperty "Process action" processActionProperty
            , testCase "map to state list" mapToStateListTest
            ]
 
@@ -56,6 +57,17 @@ actionPullbackProperty = forAll dimensions (\n ->
                                      preImage = toExplicit $ throughAction image action
                                      hasAnyFResultsInImage preImageState = any (image `contains`) (f preImageState)
                                   in all hasAnyFResultsInImage preImage)))
+
+--Check that the process action function sends to reachable states
+processActionProperty = forAll dimensions (\n ->
+                          let domain = enumerateStates n
+                           in forAll (iffActions n) (\f ->
+                              forAll (listOf (dimNStates n)) (\stateList ->
+                                let action = fromFunction domain f
+                                    preImage = fromExplicit stateList
+                                    image = preImage `processAction` action
+                                    stateIsReachable imageState = any (\p -> imageState `elem` f p) stateList
+                                 in all stateIsReachable (toExplicit image))))
 
 --TODO: rewrite as the property that the result should have 2^|free variables| elements.
 mapToStateListTest = let hash = M.fromList [(4, True), (6, False)]
