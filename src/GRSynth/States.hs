@@ -126,6 +126,9 @@ throughAction phi tr = rebase $ forceAction phi tr
 forceAction :: StateSet -> PAction -> PAction
 forceAction phi tr = tr `setAnd` (phi { setDim = (*2) <$> setDim phi })
 
+forcedByAction :: StateSet -> PAction -> StateSet
+forcedByAction phi tr = setNot $ throughAction (setNot phi) tr
+
 --Whoo, power sets. This should be pretty efficient with laziness.
 enumerateStates :: Int -> [PState]
 enumerateStates dim = let cardinality = 2^dim::Int

@@ -40,12 +40,12 @@ withInitialState :: (State x, State y) =>
 withInitialState gs f = gs { theta=f }
 
 withEnvActionAsFunction :: (State x, State y) => GameStructure x y -> ((x, y) -> [x]) -> GameStructure x y
-withEnvActionAsFunction gs f = let action (Just (s, _)) = [(x, y) | x <- f s, y <- dY gs]
+withEnvActionAsFunction gs f = let action (Just ((x, y), _)) = [(x', y) | x' <- f (x, y)]
                                    action _ = []
                                 in gs { env = actionToTransition gs action }
 
 withEnvActionAsRelation :: (State x, State y) => GameStructure x y -> [((x, y), x)] -> GameStructure x y
-withEnvActionAsRelation gs rel = let fullRel = [(s, (x, y)) | (s, x) <- rel, y <- dY gs]
+withEnvActionAsRelation gs rel = let fullRel = [((x, y), (x', y)) | ((x, y), x') <- rel]
                                      pRel = map (\(i, o) -> (encode i, encode o)) fullRel
                                      transition = fromRelation pRel
                                   in gs { env = transition }

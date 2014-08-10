@@ -34,7 +34,7 @@ envAction (Int2 x, _) = [Int2 x, Int2 ((x+1) `mod` 4)]
 --The system may cycle the y state by 1 if x == 0.
 sysAction :: S -> [S]
 sysAction (Int2 0, Int2 y) = [(Int2 0, Int2 y), (Int2 0, Int2 ((y+1) `mod` 4))]
-sysAction _ = []
+sysAction s = [s]
 
 --Construct the game structure
 gs :: GameStructure Int2 Int2
@@ -54,5 +54,6 @@ coxTest phi expected = let set = fromExplicit (map encode phi)
                         in interpret pStates @?~ expected
 
 coxTests = [ testCase "Impossible position" $ coxTest [(Int2 1, Int2 1)] ([]::[S])
+           , testCase "Forceable" $ coxTest [(Int2 0, Int2 2), (Int2 1, Int2 1)] [(Int2 0, Int2 1)]
            ]
 

@@ -53,11 +53,12 @@ withEnvAsFuncTest f expected = let gs = baseGS `withEnvActionAsFunction` f
                                 in interpret startingStates @?~ expected
 
 withEnvAsFuncTests = [ testCase "Empty" $ withEnvAsFuncTest (const empty1) empty2
-                     , testCase "Right constant" $ withEnvAsFuncTest (const [Int2 1]) cartProd
+                     , testCase "Right constant" $ withEnvAsFuncTest (const [Int2 1])
+                     [(Int2 0,Int2 2), (Int2 1,Int2 2), (Int2 2,Int2 2), (Int2 3,Int2 2)]
                      , testCase "Wrong constant" $ withEnvAsFuncTest (const [Int2 2]) empty2
                      , testCase "Partial" $ withEnvAsFuncTest
                      (\(Int2 x, _) -> [Int2 (if x==0 then 3 else x-1)])
-                         ((,) <$> [Int2 1, Int2 2] <*> domY)
+                     [(Int2 1, Int2 0), (Int2 2, Int2 2)]
                      ]
 
 withEnvAsRelationTest rel expected = let gs = baseGS `withEnvActionAsRelation` rel
@@ -65,11 +66,14 @@ withEnvAsRelationTest rel expected = let gs = baseGS `withEnvActionAsRelation` r
                                       in interpret startingStates @?~ expected
 withEnvAsRelationTests = [ testCase "Empty" $ withEnvAsRelationTest empty3 empty2
                          , testCase "Just one" $ withEnvAsRelationTest
-                         [((Int2 3, Int2 3), Int2 0)] [(Int2 3, Int2 3)]
+                         [((Int2 3, Int2 0), Int2 0)] [(Int2 3, Int2 0)]
                          , testCase "Wrong value" $ withEnvAsRelationTest
-                         [((Int2 3, Int2 3), Int2 2)] empty2
+                         [((Int2 3, Int2 0), Int2 2)] empty2
+                         , testCase "Wrong X value" $ withEnvAsRelationTest
+                         [((Int2 3, Int2 3), Int2 0)] empty2
                          , testCase "Both possibilities" $ withEnvAsRelationTest
-                         [((Int2 3, Int2 3), Int2 0), ((Int2 3, Int2 3), Int2 1)] [(Int2 3, Int2 3)]
+                         [((Int2 3, Int2 0), Int2 0), ((Int2 3, Int2 2), Int2 1)]
+                         [(Int2 3, Int2 0), (Int2 3, Int2 2)]
                          ]
 
 withSysAsFuncTest f expected = let gs = baseGS `withSysActionAsFunction` f
