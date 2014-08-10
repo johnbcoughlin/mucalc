@@ -24,7 +24,7 @@ emptyBottom = forAll dimensions (\n ->
               forAll (dimNStates n) (not . (newBottom `contains`)))
 
 fullTop = forAll dimensions (\n ->
-          forAll (dimNStates n) (newTop n `contains`))
+          forAll (dimNStates n) (newTop `contains`))
 
 singletonProp = forAllStates (\state -> (singleton state) `contains` state)
 

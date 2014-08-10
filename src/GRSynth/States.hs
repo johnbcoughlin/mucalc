@@ -34,8 +34,8 @@ newBottom :: StateSet
 newBottom = Implicit (constant False) Nothing
 
 --Contains every state
-newTop :: Int -> StateSet
-newTop n = Implicit (constant True) (Just n)
+newTop :: StateSet
+newTop = Implicit (constant True) Nothing
 
 --Binary and unary state set operators.
 setOr :: StateSet -> StateSet -> StateSet
@@ -44,6 +44,9 @@ setOr = stateSetBinaryOp (OBDD.||)
 --Intersection of two state sets
 setAnd :: StateSet -> StateSet -> StateSet
 setAnd = stateSetBinaryOp (OBDD.&&)
+
+empty :: StateSet -> Bool
+empty (Implicit set _) = OBDD.null set
 
 -- | Defines a binary operator on two state sets in terms of an operator on their underlying
 -- OBDD's. Requires that one or both dimensions be Nothing, or that, if they are known, they're equal.
@@ -112,7 +115,7 @@ fromRelation rel = let singletons = map (\(i, o) -> singleton (o ++ i)) rel
 --The set of output states reachable from the given input
 processAction :: StateSet -> PAction -> StateSet
 processAction phi tr = let n = (fromJust $ setDim tr) `div` 2
-                           inputForce = forceAction phi (newTop (n * 2))
+                           inputForce = forceAction phi newTop
                            combined = tr `setAnd` inputForce
                            justOutputs = exists_many (S.fromList [n..(2*n-1)]) (obdd combined)
                         in Implicit justOutputs (Just n)

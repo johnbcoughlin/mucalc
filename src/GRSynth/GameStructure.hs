@@ -18,7 +18,8 @@ data (State x, State y) => GameStructure x y = GameStructure { dX :: [x]
 
 newGameStructure :: (State x, State y) => [x] -> [y] -> GameStructure x y
 newGameStructure xs ys = let xys = [(x, y) | x <- xs, y <- ys]
-                          in GameStructure { dX = xs, dY = ys, dom = xys, props = M.empty }
+                          in GameStructure { dX = xs, dY = ys, dom = xys, props = M.empty
+                                           , assumptions = [], guarantees = [] }
 
 -- | Adds a named atomic proposition to the given GameStructure. The proposition
 -- is specified as a predicate on complete (input, output) states.

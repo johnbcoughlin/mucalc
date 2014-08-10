@@ -11,13 +11,15 @@ import GRSynth.Semantics
 import GRSynth.Synthesis
 
 testList = [ testGroup "Cox" coxTests
+           , testGroup "Fixpoint" fixpointStopTests
+           , testCase "Synthesis" synthTest
            ]
 
 type S = (Int2, Int2)
 
 --We really only need three atomic propositions: x == 0, y == 3, and the initial condition
 liveness :: S -> Bool
-liveness (Int2 0, _) = True
+liveness (Int2 2, _) = True
 liveness _ = False
 
 winning :: S -> Bool
@@ -29,7 +31,7 @@ initial = [(Int2 0, Int2 0)]
 
 --The environment may cycle the x state by 1
 envAction :: S -> [Int2]
-envAction (Int2 x, _) = [Int2 x, Int2 ((x+1) `mod` 4)]
+envAction (Int2 x, _) = [Int2 ((x+1) `mod` 4)]
 
 --The system may cycle the y state by 1 if x == 0.
 sysAction :: S -> [S]
@@ -47,7 +49,6 @@ gs = (((baseGS `withPropAsPredicate` "liveness") liveness
                `withEnvActionAsFunction` envAction
                `withSysActionAsFunction` sysAction
 
-
 coxTest :: [S] -> [S] -> Assertion
 coxTest phi expected = let set = fromExplicit (map encode phi)
                            pStates = toExplicit (cox (env gs) (sys gs) set)
@@ -57,3 +58,28 @@ coxTests = [ testCase "Impossible position" $ coxTest [(Int2 1, Int2 1)] ([]::[S
            , testCase "Forceable" $ coxTest [(Int2 0, Int2 2), (Int2 1, Int2 1)] [(Int2 0, Int2 1)]
            ]
 
+fixpointStopTests = [ testCase "Bottom < Top" bottomTopTest
+                    , testCase "Top < Bottom" topBottomTest
+                    , testCase "Top <> Top" topTopTest
+                    , testCase "Bottom <> Bottom" bottomBottomTest
+                    , testCase "Bottom < Something" bottomSomethingTest
+                    , testCase "Something < ManyThings" somethingManyThingsTest
+                    , testCase "ManyThings < Top" manyThingsTopTest
+                    ]
+
+something :: StateSet
+something = fromExplicit [[False, False]]
+
+manyThings :: StateSet
+manyThings = fromExplicit [[False, False], [False, True], [True, False]]
+
+bottomTopTest = fixpointStop newBottom newTop @?= False
+topBottomTest = fixpointStop newTop newBottom @?= True
+topTopTest = fixpointStop newTop newTop @?= True
+bottomBottomTest = fixpointStop newBottom newBottom @?= True
+bottomSomethingTest = fixpointStop newBottom something @?= False
+somethingManyThingsTest = fixpointStop something manyThings @?= False
+manyThingsTopTest = fixpointStop manyThings newTop @?= False
+
+synthTest = let result = toExplicit $ synth gs
+             in interpret result @?~ [(Int2 0, Int2 0)]
