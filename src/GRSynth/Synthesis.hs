@@ -1,66 +1,91 @@
-module GRSynth.Synthesis where
+module GRSynth.Synthesis ( synth
+                         , cox
+                         , fixpointStop
+                         ) where
 
 import GRSynth.Formulas
 import GRSynth.States
 import GRSynth.GameStructure
 import GRSynth.Semantics
 import Control.Monad.Identity
+import Control.Monad.Reader
+import Control.Monad.State
+import Control.Monad.Writer
 import Data.List (foldl')
 
 cox :: PAction -> PAction -> StateSet -> StateSet
 cox env sys set = let poised = set `throughAction` sys --poised to move to a good position
                    in poised `forcedByAction` env
 
-type SynthM = Identity StateSet
+coxGS :: GameStructure -> StateSet -> StateSet
+coxGS gs = cox (env gs) (sys gs)
 
-synth :: (State x, State y) => GameStructure x y -> StateSet
-synth gs = runSynth (doSynth gs)
+type S = (Int, Int, Int)
+tickJ, tickR, tickI :: SynthM ()
+tickJ = let f (j, r, i) = (j+1, r, i)
+         in modify f
+tickR = let f (j, r, i) = (j, r+1, i)
+         in modify f
+tickI = let f (j, r, i) = (j, r, i+1)
+         in modify f
 
-runSynth :: SynthM -> StateSet
-runSynth = runIdentity
+type SynthM = ReaderT GameStructure (StateT S Identity)
 
-doSynth :: (State x, State y) => GameStructure x y -> SynthM
-doSynth gs = doGFixpointZ gs newTop
+synth :: GameStructure -> StateSet
+synth gs = fst $ runSynth doSynth gs
 
-doGFixpointZ :: (State x, State y) => GameStructure x y -> StateSet -> SynthM
-doGFixpointZ gs z = do n <- return $ length (guarantees gs)
-                       newZ <- doGFixpointZAux gs 0 n z
-                       if fixpointStop newZ z
-                          then return newZ
-                          else doGFixpointZ gs newZ
+runSynth :: SynthM StateSet -> GameStructure -> (StateSet, S)
+runSynth comp gs = runIdentity (runStateT (runReaderT comp gs) (0, 0, 0))
+
+doSynth :: SynthM StateSet
+doSynth = doGFixpointZ newTop
+
+doGFixpointZ :: StateSet -> SynthM StateSet
+doGFixpointZ z = do gs <- ask
+                    let n = length $ guarantees gs
+                     in do newZ <- doGFixpointZAux n z
+                           if fixpointStop newZ z
+                              then return newZ
+                              else put (0, 0, 0) >> doGFixpointZ newZ
 
 --Execute the Y least fixpoint n times, binding the result to Z in every iteration
-doGFixpointZAux :: (State x, State y) => GameStructure x y -> Int -> Int -> StateSet -> SynthM
-doGFixpointZAux gs j n currentZ = if j == n
-                                     then return currentZ
-                                     else do
-                                       nextZ <- doLFixpointY gs currentZ newBottom j
-                                       doGFixpointZAux gs (j+1) n nextZ
+doGFixpointZAux :: Int -> StateSet -> SynthM StateSet
+doGFixpointZAux n currentZ = do (j, _, _) <- get
+                                if j == n
+                                   then return currentZ
+                                   else do nextZ <- doLFixpointY currentZ newBottom
+                                           tickJ
+                                           doGFixpointZAux n nextZ
 
-doLFixpointY :: (State x, State y) => GameStructure x y -> StateSet -> StateSet -> Int -> SynthM
-doLFixpointY gs z y j = do guarantee <- return $ guarantees gs !! j
-                           Right goodStates <- return $ realize (props gs) guarantee
-                           coxZ <- return $ cox (env gs) (sys gs) z
-                           coxY <- return $ cox (env gs) (sys gs) y
-                           start <- return $ (goodStates `setAnd` coxZ) `setOr` coxY
-                           m <- return $ length (assumptions gs)
-                           disjuncts <- forM [0..m-1] (\i -> do
-                                x <- doGFixpointX gs start z i
-                                return x)
-                           newY <- return $ foldl' setOr newBottom disjuncts
-                           if fixpointStop y newY
-                              then return newY
-                              else doLFixpointY gs z newY j
+doLFixpointY :: StateSet -> StateSet -> SynthM StateSet
+doLFixpointY z y = do gs <- ask
+                      (j, r, _) <- get
+                      let guarantee = guarantees gs !! j
+                          Right goodStates = realize (props gs) guarantee
+                          coxZ = coxGS gs z
+                          coxY = coxGS gs y
+                          start = (goodStates `setAnd` coxZ) `setOr` coxY
+                          m = length (assumptions gs)
+                       in do disjuncts <- forM [0..m-1] (\i -> do
+                                               x <- doGFixpointX start z
+                                               put (j, r, i)
+                                               return x)
+                             let newY = foldl' setOr newBottom disjuncts
+                              in if fixpointStop y newY
+                                    then return newY
+                                    else doLFixpointY z newY
 
-doGFixpointX :: (State x, State y) => GameStructure x y -> StateSet -> StateSet -> Int -> SynthM
-doGFixpointX gs start x i = do assumption <- return $ assumptions gs !! i
-                               Right badStates <- return $ realize (props gs) (Negation assumption)
-                               coxX <- return $ cox (env gs) (sys gs) x
-                               newX <- return $ start `setOr` (badStates `setAnd` coxX)
-                               if fixpointStop newX x
-                                  then return newX
-                                  else doGFixpointX gs start newX i
+doGFixpointX :: StateSet -> StateSet -> SynthM StateSet
+doGFixpointX start x = do (_, _, i) <- get
+                          gs <- ask
+                          let assumption = assumptions gs !! i
+                              Right badStates = realize (props gs) (Negation assumption)
+                              coxX = coxGS gs x
+                              newX = start `setOr` (badStates `setAnd` coxX)
+                           in if fixpointStop newX x
+                                 then return newX
+                                 else doGFixpointX start newX
 
 --Equality check on statesets, assuming phi <= psi
 fixpointStop :: StateSet -> StateSet -> Bool
-fixpointStop phi psi = empty (psi `setAnd` (setNot phi))
+fixpointStop phi psi = empty (psi `setAnd` setNot phi)

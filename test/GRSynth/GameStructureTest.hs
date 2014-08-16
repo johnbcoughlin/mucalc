@@ -31,11 +31,11 @@ constructorTests = [ testCase "With prop as predicate" withPropAsPredTest
 withPropAsPredTest = let pred (Int2 x, Int2 y) = x + y == 2
                          pred _ = False
                          gs = baseGS `withPropAsPredicate` "A" $ pred
-                         pStates = toExplicit . fromJust $ M.lookup "A" (props gs)
+                         pStates = toExplicit . fromJust $ M.lookup "A" (gsprops gs)
                       in interpret pStates @?~ [(Int2 0, Int2 2), (Int2 1, Int2 1), (Int2 2, Int2 0)]
 
 withPropAsSupportTest list = let gs = baseGS `withPropAsSupport` "A" $ list
-                                 pStates = toExplicit . fromJust $ M.lookup "A" (props gs)
+                                 pStates = toExplicit . fromJust $ M.lookup "A" (gsprops gs)
                               in interpret pStates @?~ list
 
 withPropAsSupportTests = [ testCase "Normal" (withPropAsSupportTest [(Int2 3, Int2 0), (Int2 1, Int2 2)])
@@ -49,7 +49,7 @@ empty2 = [] :: [(Int2, Int2)]
 empty3 = [] :: [((Int2, Int2), Int2)]
 empty4 = [] :: [((Int2, Int2), (Int2, Int2))]
 withEnvAsFuncTest f expected = let gs = baseGS `withEnvActionAsFunction` f
-                                   startingStates = toExplicit (fromExplicit goalStates `throughAction` env gs)
+                                   startingStates = toExplicit (fromExplicit goalStates `throughAction` gsenv gs)
                                 in interpret startingStates @?~ expected
 
 withEnvAsFuncTests = [ testCase "Empty" $ withEnvAsFuncTest (const empty1) empty2
@@ -62,7 +62,7 @@ withEnvAsFuncTests = [ testCase "Empty" $ withEnvAsFuncTest (const empty1) empty
                      ]
 
 withEnvAsRelationTest rel expected = let gs = baseGS `withEnvActionAsRelation` rel
-                                         startingStates = toExplicit (fromExplicit goalStates `throughAction` env gs)
+                                         startingStates = toExplicit (fromExplicit goalStates `throughAction` gsenv gs)
                                       in interpret startingStates @?~ expected
 withEnvAsRelationTests = [ testCase "Empty" $ withEnvAsRelationTest empty3 empty2
                          , testCase "Just one" $ withEnvAsRelationTest
@@ -77,7 +77,7 @@ withEnvAsRelationTests = [ testCase "Empty" $ withEnvAsRelationTest empty3 empty
                          ]
 
 withSysAsFuncTest f expected = let gs = baseGS `withSysActionAsFunction` f
-                                   startingStates = toExplicit (fromExplicit goalStates `throughAction` sys gs)
+                                   startingStates = toExplicit (fromExplicit goalStates `throughAction` gssys gs)
                                 in interpret startingStates @?~ expected
 
 withSysAsFuncTests = [ testCase "Empty" $ withSysAsFuncTest (const empty2) empty2
@@ -89,7 +89,7 @@ withSysAsFuncTests = [ testCase "Empty" $ withSysAsFuncTest (const empty2) empty
                      ]
 
 withSysAsRelationTest rel expected = let gs = baseGS `withSysActionAsRelation` rel
-                                         startingStates = toExplicit (fromExplicit goalStates `throughAction` sys gs)
+                                         startingStates = toExplicit (fromExplicit goalStates `throughAction` gssys gs)
                                       in interpret startingStates @?~ expected
 
 withSysAsRelationTests = [ testCase "Empty" $ withSysAsRelationTest empty4 empty2
