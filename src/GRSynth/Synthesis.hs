@@ -30,17 +30,19 @@ tickI = let f (j, r, i) = (j, r, i+1)
          in modify f
 
 type SynthM = ReaderT GameStructure (StateT S Identity)
+type JAddendum = ([[StateSet]], [StateSet])
+type Addenda = ([[[StateSet]]], [[StateSet]])
 
 synth :: GameStructure -> StateSet
-synth gs = fst $ runSynth doSynth gs
+synth gs = fst $ runSynth (doSynth) gs
 
 runSynth :: SynthM StateSet -> GameStructure -> (StateSet, S)
 runSynth comp gs = runIdentity (runStateT (runReaderT comp gs) (0, 0, 0))
 
-doSynth :: SynthM StateSet
+doSynth :: WriterT Addenda SynthM StateSet
 doSynth = doGFixpointZ newTop
 
-doGFixpointZ :: StateSet -> SynthM StateSet
+doGFixpointZ :: StateSet -> WriterT Addenda SynthM StateSet
 doGFixpointZ z = do gs <- ask
                     let n = length $ guarantees gs
                      in do newZ <- doGFixpointZAux n z
@@ -48,16 +50,20 @@ doGFixpointZ z = do gs <- ask
                               then return newZ
                               else put (0, 0, 0) >> doGFixpointZ newZ
 
+liftW :: SynthM (StateSet, JAddendum) -> SynthM (StateSet, Addenda)
+liftW = let f (s, (xs, ys)) = (s, ([xs], [ys]))
+         in liftM f
+
 --Execute the Y least fixpoint n times, binding the result to Z in every iteration
-doGFixpointZAux :: Int -> StateSet -> SynthM StateSet
+doGFixpointZAux :: Int -> StateSet -> WriterT Addenda SynthM StateSet
 doGFixpointZAux n currentZ = do (j, _, _) <- get
                                 if j == n
                                    then return currentZ
-                                   else do nextZ <- doLFixpointY currentZ newBottom
-                                           tickJ
+                                   else do (nextZ, (xs, ys)) <- lift $ runWriterT (mapWriterT liftW $ doLFixpointY currentZ newBottom)
+                                           lift tickJ
                                            doGFixpointZAux n nextZ
 
-doLFixpointY :: StateSet -> StateSet -> SynthM StateSet
+doLFixpointY :: StateSet -> StateSet -> WriterT JAddendum SynthM StateSet
 doLFixpointY z y = do gs <- ask
                       (j, r, _) <- get
                       let guarantee = guarantees gs !! j
@@ -67,13 +73,13 @@ doLFixpointY z y = do gs <- ask
                           start = (goodStates `setAnd` coxZ) `setOr` coxY
                           m = length (assumptions gs)
                        in do disjuncts <- forM [0..m-1] (\i -> do
-                                               x <- doGFixpointX start z
+                                               x <- lift $ doGFixpointX start z
                                                put (j, r, i)
                                                return x)
                              let newY = foldl' setOr newBottom disjuncts
-                              in if fixpointStop y newY
-                                    then return newY
-                                    else doLFixpointY z newY
+                              in tell ([disjuncts], [newY]) >> if fixpointStop y newY
+                                                       then return newY
+                                                       else doLFixpointY z newY
 
 doGFixpointX :: StateSet -> StateSet -> SynthM StateSet
 doGFixpointX start x = do (_, _, i) <- get
